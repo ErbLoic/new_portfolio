@@ -41,22 +41,22 @@ final class AdminSections
         'projets' => [
             'class' => Entity\Project::class, 'form' => Form\ProjectType::class,
             'label' => 'Projets', 'new' => 'Ajouter un projet', 'icon' => 'bi-kanban',
-            'columns' => ['title' => 'Titre', 'type' => 'Type', 'year' => 'Année', 'company' => 'Entreprise', 'formation' => 'École', 'images' => 'Images'],
-            'order' => ['id' => 'DESC'],
+            'columns' => ['title' => 'Titre', 'type' => 'Type', 'dateLabel' => 'Date', 'company' => 'Entreprise', 'formation' => 'École', 'images' => 'Images'],
+            'order' => ['projectDate' => 'DESC', 'id' => 'DESC'],
             'gallery' => true, 'public' => 'project_show',
         ],
         'realisations' => [
             'class' => Entity\Realisation::class, 'form' => Form\RealisationType::class,
             'label' => 'Réalisations', 'new' => 'Ajouter une réalisation', 'icon' => 'bi-palette',
-            'columns' => ['title' => 'Titre', 'type' => 'Type', 'company' => 'Entreprise', 'images' => 'Images'],
-            'order' => ['id' => 'DESC'],
+            'columns' => ['title' => 'Titre', 'type' => 'Type', 'dateLabel' => 'Date', 'company' => 'Entreprise', 'images' => 'Images'],
+            'order' => ['projectDate' => 'DESC', 'id' => 'DESC'],
             'gallery' => true, 'public' => 'realisation_show',
         ],
         'projets-perso' => [
             'class' => Entity\PersonalProject::class, 'form' => Form\PersonalProjectType::class,
             'label' => 'Projets perso', 'new' => 'Ajouter un projet perso', 'icon' => 'bi-rocket-takeoff',
-            'columns' => ['title' => 'Titre', 'type' => 'Type', 'year' => 'Année', 'isFeatured' => 'Mis en avant', 'images' => 'Images'],
-            'order' => ['order' => 'ASC', 'year' => 'DESC'],
+            'columns' => ['title' => 'Titre', 'type' => 'Type', 'dateLabel' => 'Date', 'isFeatured' => 'Mis en avant', 'images' => 'Images'],
+            'order' => ['order' => 'ASC', 'projectDate' => 'DESC'],
             'gallery' => true, 'public' => 'personal_project_show',
         ],
         'messages' => [

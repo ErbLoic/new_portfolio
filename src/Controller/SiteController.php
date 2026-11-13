@@ -6,6 +6,7 @@ use App\Entity\Portfolio;
 use App\Entity\Project;
 use App\Entity\Realisation;
 use App\Service\PortfolioData;
+use App\Service\StructuredData;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -23,21 +24,32 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 final class SiteController extends AbstractController
 {
     #[Route('/', name: 'home', methods: ['GET'])]
-    public function home(PortfolioData $data): Response
+    public function home(PortfolioData $data, \App\Service\StructuredData $schema): Response
     {
-        return $this->render('site/index.html.twig', ['data' => $data->all()]);
+        $all = $data->all();
+
+        return $this->render('site/index.html.twig', ['data' => $all, 'jsonld' => $schema->home($all)]);
     }
 
     #[Route('/projet/{id<\d+>}', name: 'project_show', methods: ['GET'])]
-    public function project(Project $project, PortfolioData $data): Response
+    public function project(Project $project, PortfolioData $data, StructuredData $schema): Response
     {
-        return $this->render('site/projet.html.twig', ['item' => $data->project($project, true), 'owner' => $data->owner()]);
+        return $this->renderWork('site/projet.html.twig', $data->project($project, true), $data, $schema, 'project_show', $project->id);
     }
 
     #[Route('/realisation/{id<\d+>}', name: 'realisation_show', methods: ['GET'])]
-    public function realisation(Realisation $realisation, PortfolioData $data): Response
+    public function realisation(Realisation $realisation, PortfolioData $data, StructuredData $schema): Response
     {
-        return $this->render('site/realisation.html.twig', ['item' => $data->realisation($realisation, true), 'owner' => $data->owner()]);
+        return $this->renderWork('site/realisation.html.twig', $data->realisation($realisation, true), $data, $schema, 'realisation_show', $realisation->id);
+    }
+
+    /** Page de détail + données structurées « CreativeWork » pour les moteurs. */
+    private function renderWork(string $template, array $item, PortfolioData $data, StructuredData $schema, string $route, int $id): Response
+    {
+        $owner = $data->owner();
+        $url = $this->generateUrl($route, ['id' => $id], \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL);
+
+        return $this->render($template, ['item' => $item, 'owner' => $owner, 'jsonld' => $schema->work($item, $owner, $url)]);
     }
 
     #[Route('/mentions-legales', name: 'legal', methods: ['GET'])]
@@ -60,19 +72,25 @@ final class SiteController extends AbstractController
     public function sitemap(EntityManagerInterface $em): Response
     {
         $abs = \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL;
-        $urls = [$this->generateUrl('home', [], $abs), $this->generateUrl('legal', [], $abs)];
-        foreach ($em->getRepository(Project::class)->findAll() as $p) {
-            $urls[] = $this->generateUrl('project_show', ['id' => $p->id], $abs);
+        // [url, dernière modification, priorité] : l'accueil (ton nom) est la page la plus importante
+        $portfolio = $em->getRepository(Portfolio::class)->findOneBy([], ['id' => 'ASC']);
+        $urls = [[$this->generateUrl('home', [], $abs), $portfolio?->updatedAt, '1.0']];
+        foreach ([
+            [Project::class, 'project_show'],
+            [Realisation::class, 'realisation_show'],
+            [\App\Entity\PersonalProject::class, 'personal_project_show'],
+        ] as [$class, $route]) {
+            foreach ($em->getRepository($class)->findAll() as $item) {
+                $urls[] = [$this->generateUrl($route, ['id' => $item->id], $abs), $item->updatedAt, '0.7'];
+            }
         }
-        foreach ($em->getRepository(Realisation::class)->findAll() as $r) {
-            $urls[] = $this->generateUrl('realisation_show', ['id' => $r->id], $abs);
-        }
-        foreach ($em->getRepository(\App\Entity\PersonalProject::class)->findAll() as $p) {
-            $urls[] = $this->generateUrl('personal_project_show', ['id' => $p->id], $abs);
-        }
+        $urls[] = [$this->generateUrl('legal', [], $abs), null, '0.2'];
+
         $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'."\n";
-        foreach ($urls as $u) {
-            $xml .= '  <url><loc>'.htmlspecialchars($u, \ENT_XML1).'</loc></url>'."\n";
+        foreach ($urls as [$u, $updated, $priority]) {
+            $xml .= '  <url><loc>'.htmlspecialchars($u, \ENT_XML1).'</loc>'
+                .($updated ? '<lastmod>'.$updated->format('Y-m-d').'</lastmod>' : '')
+                .'<priority>'.$priority.'</priority></url>'."\n";
         }
 
         return new Response($xml.'</urlset>'."\n", 200, ['Content-Type' => 'application/xml; charset=UTF-8']);
@@ -86,10 +104,10 @@ final class SiteController extends AbstractController
     }
 
     #[Route('/projet-perso/{id<\d+>}', name: 'personal_project_show', methods: ['GET'])]
-    public function personalProject(\App\Entity\PersonalProject $project, PortfolioData $data): Response
+    public function personalProject(\App\Entity\PersonalProject $project, PortfolioData $data, StructuredData $schema): Response
     {
         // Même page que les réalisations (galerie, liens GitHub / démo, Markdown)
-        return $this->render('site/realisation.html.twig', ['item' => $data->personalProject($project), 'owner' => $data->owner()]);
+        return $this->renderWork('site/realisation.html.twig', $data->personalProject($project), $data, $schema, 'personal_project_show', $project->id);
     }
 
     /** Formulaire de contact (appelé en JSON par app.js). */
@@ -120,6 +138,10 @@ final class SiteController extends AbstractController
         }
 
         $owner = $em->getRepository(Portfolio::class)->findOneBy([], ['id' => 'ASC']);
+        // Formulaire désactivé dans l'admin : on refuse aussi les envois directs
+        if ($owner && !$owner->showContactForm) {
+            return $this->json(['success' => false, 'error' => 'Le formulaire de contact est désactivé.'], 403);
+        }
         $to = $owner?->email ?: $mailerFrom;
         if (!$to || !$mailerFrom) {
             return $this->json(['success' => false, 'error' => 'Adresse email de destination non configurée'], 500);

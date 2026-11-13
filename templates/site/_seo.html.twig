@@ -1,6 +1,7 @@
 {#
   Balises SEO et aperçu de partage (Google, LinkedIn, Slack, WhatsApp…).
-  Paramètres : seo_title, seo_description, seo_image (URL ou null), seo_type ('profile' | 'article'), person (portfolio)
+  Paramètres : seo_title, seo_description, seo_image (URL ou null), seo_type ('profile' | 'article' | 'website'),
+               jsonld (données structurées schema.org, optionnel)
 #}
 {% set seo_url = app.request.uri|split('?')|first %}
 {% set seo_desc = seo_description|default('')|striptags|replace({"\n": ' ', "\r": ' '})|trim %}
@@ -9,14 +10,25 @@
 <title>{{ seo_title }}</title>
 <meta name="description" content="{{ seo_desc }}" />
 <link rel="canonical" href="{{ seo_url }}" />
-<meta name="robots" content="index, follow" />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+{% if seo_author is defined and seo_author %}
+<meta name="author" content="{{ seo_author }}" />
+{% endif %}
+{% if google_site_verification %}
+<meta name="google-site-verification" content="{{ google_site_verification }}" />
+{% endif %}
+{% if bing_site_verification %}
+<meta name="msvalidate.01" content="{{ bing_site_verification }}" />
+{% endif %}
 <meta property="og:type" content="{{ seo_type|default('website') }}" />
 <meta property="og:locale" content="fr_FR" />
+<meta property="og:site_name" content="{{ seo_author|default('Portfolio') }}" />
 <meta property="og:title" content="{{ seo_title }}" />
 <meta property="og:description" content="{{ seo_desc }}" />
 <meta property="og:url" content="{{ seo_url }}" />
 {% if seo_img %}
 <meta property="og:image" content="{{ seo_img }}" />
+<meta property="og:image:alt" content="{{ seo_title }}" />
 {% endif %}
 <meta name="twitter:card" content="{{ seo_img ? 'summary_large_image' : 'summary' }}" />
 <meta name="twitter:title" content="{{ seo_title }}" />
@@ -24,15 +36,6 @@
 {% if seo_img %}
 <meta name="twitter:image" content="{{ seo_img }}" />
 {% endif %}
-{% if person %}
-<script type="application/ld+json">{{ {
-    '@context': 'https://schema.org',
-    '@type': 'Person',
-    'name': person.first_name ~ ' ' ~ person.last_name,
-    'jobTitle': person.job_title,
-    'description': person.bio,
-    'image': seo_img,
-    'url': absolute_url(path('home')),
-    'sameAs': [person.linkedin_url, person.github_url]|filter(v => v)
-}|json_encode(constant('JSON_UNESCAPED_SLASHES') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_HEX_TAG'))|raw }}</script>
+{% if jsonld is defined and jsonld %}
+<script type="application/ld+json">{{ jsonld|json_encode(constant('JSON_UNESCAPED_SLASHES') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP'))|raw }}</script>
 {% endif %}

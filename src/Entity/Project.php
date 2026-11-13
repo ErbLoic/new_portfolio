@@ -11,6 +11,7 @@ class Project implements GalleryOwner
 {
     use Timestamps;
     use GalleryOwnerTrait;
+    use ProjectDate;
 
     #[ORM\Id, ORM\GeneratedValue, ORM\Column] public ?int $id = null;
     #[ORM\ManyToOne, ORM\JoinColumn(name: 'company_id', nullable: true, onDelete: 'SET NULL')]

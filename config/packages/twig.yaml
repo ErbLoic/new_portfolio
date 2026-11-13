@@ -1,5 +1,9 @@
 twig:
     file_name_pattern: '*.twig'
+    globals:
+        # Codes de validation Google Search Console / Bing Webmaster (facultatifs)
+        google_site_verification: '%env(default::GOOGLE_SITE_VERIFICATION)%'
+        bing_site_verification: '%env(default::BING_SITE_VERIFICATION)%'
 
 when@test:
     twig:

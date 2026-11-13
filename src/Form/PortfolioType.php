@@ -32,6 +32,8 @@ final class PortfolioType extends AbstractType
             ->add('location', TextType::class, ['label' => 'Localisation', 'required' => false])
             ->add('linkedinUrl', UrlType::class, ['label' => 'LinkedIn', 'required' => false, 'default_protocol' => 'https'])
             ->add('githubUrl', UrlType::class, ['label' => 'GitHub', 'required' => false, 'default_protocol' => 'https'])
+            ->add('showContactForm', CheckboxType::class, ['label' => 'Afficher le formulaire de contact', 'required' => false, 'help' => "Décoché : le formulaire disparaît du site, seuls l'email et les réseaux restent."])
+            ->add('showCv', CheckboxType::class, ['label' => 'Afficher mon CV sur le site', 'required' => false, 'help' => 'Décoché : le bouton et la section « Télécharger mon CV » sont masqués (le fichier reste enregistré).'])
             ->add('contactMessage', TextareaType::class, ['label' => 'Message de la section contact', 'required' => false, 'attr' => ['rows' => 3, 'class' => 'markdown-editor', 'data-md' => 'block']])
         ;
     }

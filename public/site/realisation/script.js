@@ -200,7 +200,7 @@ function renderRealisation(realisation) {
         <div class="detail-header" style="background: linear-gradient(135deg, ${color} 0%, ${color}cc 100%);">
             <span class="detail-type">${isStage ? 'Stage' : (realisation.type === 'perso' ? 'Projet perso' : 'Projet')}</span>
             <h1 class="detail-title">${realisation.title}</h1>
-            ${realisation.company ? `<p class="detail-year">${realisation.company.name}</p>` : ''}
+            ${realisation.company || realisation.date_label ? `<p class="detail-year">${[realisation.company?.name, realisation.date_label].filter(Boolean).join(' · ')}</p>` : ''}
         </div>
         <div class="detail-body">
     `;

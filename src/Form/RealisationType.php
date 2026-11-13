@@ -26,6 +26,7 @@ final class RealisationType extends AbstractType
             ->add('title', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Titre'])
             ->add('type', ChoiceType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Type', 'choices' => ['Stage' => 'stage', 'Projet' => 'projet']])
             ->add('company', EntityType::class, ['label' => 'Entreprise', 'class' => \App\Entity\Company::class, 'required' => false, 'placeholder' => '— Aucune —'])
+            ->add('monthInput', MonthInputType::class, ['required' => false])
             ->add('description', TextareaType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Description courte', 'attr' => ['rows' => 3, 'class' => 'markdown-editor', 'data-md' => 'inline']])
             ->add('longDescription', TextareaType::class, ['label' => 'Description détaillée', 'required' => false, 'attr' => ['rows' => 8, 'class' => 'markdown-editor'], 'help' => "Titres, listes, gras, liens, code… Utilise la barre d'outils ; l'œil affiche l'aperçu."])
             ->add('tagsText', TextType::class, ['label' => 'Technologies (séparées par des virgules)', 'required' => false])

@@ -2893,3 +2893,7 @@ footer {
 .md blockquote { margin: 0.5em 0; padding-left: 0.9em; border-left: 3px solid currentColor; opacity: 0.85; }
 .md table { border-collapse: collapse; margin: 0.5em 0; }
 .md th, .md td { border: 1px solid rgba(0, 0, 0, 0.12); padding: 0.3em 0.6em; }
+
+/* Case vide du carrousel (colonne entreprise ou école plus courte) */
+.realisation-placeholder { visibility: hidden; }
+@media (max-width: 767px) { .realisation-placeholder { display: none; } }

@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     {% set fullname = data.portfolio ? data.portfolio.first_name ~ ' ' ~ data.portfolio.last_name : 'Portfolio' %}
     {% include 'site/_seo.html.twig' with {
-      seo_title: fullname ~ (data.portfolio ? ' — ' ~ data.portfolio.job_title : ''),
-      seo_description: data.portfolio.bio ?? '',
+      seo_title: fullname ~ (data.portfolio ? ' — ' ~ data.portfolio.job_title : '') ~ ' | Portfolio',
+      seo_description: data.portfolio ? fullname ~ ', ' ~ data.portfolio.job_title ~ (data.portfolio.location ? ' (' ~ data.portfolio.location ~ ')' : '') ~ '. ' ~ (data.portfolio.bio_html ?? '')|striptags : '',
       seo_image: data.portfolio.photo_url ?? null,
       seo_type: 'profile',
-      person: data.portfolio
+      seo_author: fullname
     } %}
     <link rel="stylesheet" href="{{ asset('site/styles.css') }}" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -426,6 +426,8 @@
             >
           </div>
         </div>
+        {% set show_form = data.portfolio.show_contact_form ?? true %}
+        {% if show_form %}
         <form id="contact-form" class="contact-form" novalidate>
           <div class="cf-row">
             <div class="cf-field">
@@ -449,7 +451,9 @@
           <button id="cf-submit" type="submit" class="btn-white">Envoyer</button>
           <p id="cf-feedback" class="cf-feedback" role="status" aria-live="polite"></p>
         </form>
-        <a id="email-cta" href="mailto:" class="btn-white" style="display: none"
+        {% endif %}
+        {# Sans formulaire, un bouton « Envoyer un email » le remplace #}
+        <a id="email-cta" href="mailto:{{ data.portfolio.email ?? '' }}" class="btn-white"{{ show_form or not (data.portfolio.email ?? null) ? ' style="display: none"' }}
           >Envoyer un email</a
         >
       </div>
@@ -519,7 +523,45 @@
       </div>
     </div>
 
-    <script>window.PORTFOLIO_DATA = {{ data|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};</script>
+    {# Contenu lisible sans JavaScript : moteurs de recherche, lecteurs d'écran, aperçus #}
+    <noscript>
+      <section class="noscript-content" style="max-width:760px;margin:2rem auto;padding:0 1rem;line-height:1.6">
+        {% set p = data.portfolio %}
+        {% if p %}
+          <h2>{{ p.first_name }} {{ p.last_name }} — {{ p.job_title }}</h2>
+          {{ (p.bio_html ?? '')|raw }}
+        {% endif %}
+        {% if data.stages is not empty %}
+          <h3>Expériences</h3>
+          <ul>
+            {% for s in data.stages %}
+              <li>{{ s.role }} — {{ s.company.name ?? '' }}{{ s.is_current ? ' (en cours)' }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        {% set works = [] %}
+        {% for x in data.projects %}{% set works = works|merge([{t: x.title, d: x.date_label, k: x.sort_key, u: path('project_show', {id: x.id})}]) %}{% endfor %}
+        {% for x in data.realisations %}{% set works = works|merge([{t: x.title, d: x.date_label, k: x.sort_key, u: path('realisation_show', {id: x.id})}]) %}{% endfor %}
+        {% for x in data.personalProjects %}{% set works = works|merge([{t: x.title, d: x.date_label, k: x.sort_key, u: path('personal_project_show', {id: x.id})}]) %}{% endfor %}
+        {% if works is not empty %}
+          <h3>Projets et réalisations</h3>
+          <ul>
+            {% for w in works|sort((a, b) => b.k <=> a.k) %}
+              <li><a href="{{ w.u }}">{{ w.t }}</a>{{ w.d ? ' — ' ~ w.d }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        {% if data.formations is not empty %}
+          <h3>Formations</h3>
+          <ul>
+            {% for f in data.formations %}<li>{{ f.title }} — {{ f.school }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+        <p><a href="{{ path('legal') }}">Mentions légales</a></p>
+      </section>
+    </noscript>
+
+    <script>window.PORTFOLIO_DATA ={{ data|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};</script>
     <script src="{{ asset('site/app.js') }}"></script>
     <script src="{{ asset('site/eggs.js') }}"></script>
   </body>

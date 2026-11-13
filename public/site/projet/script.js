@@ -206,7 +206,7 @@ function renderProject(project) {
         <div class="detail-header" style="background: linear-gradient(135deg, ${color} 0%, ${color}cc 100%);">
             <span class="detail-type">${project.type || 'Projet'}</span>
             <h1 class="detail-title">${project.title}</h1>
-            <p class="detail-year">${project.year || ''}</p>
+            <p class="detail-year">${project.date_label || project.year || ''}</p>
         </div>
         <div class="detail-body">
     `;

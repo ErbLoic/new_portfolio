@@ -30,7 +30,8 @@ final class FormationType extends AbstractType
             ->add('startDate', DateType::class, ['constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Début', 'widget' => 'single_text'])
             ->add('endDate', DateType::class, ['label' => 'Fin', 'widget' => 'single_text', 'required' => false])
             ->add('isCurrent', CheckboxType::class, ['label' => 'Formation en cours', 'required' => false])
-            ->add('description', TextareaType::class, ['label' => 'Description', 'required' => false, 'attr' => ['rows' => 4, 'class' => 'markdown-editor', 'data-md' => 'block']])
+            ->add('description', TextareaType::class, ['help' => "Affichée dans « Mon parcours » sur la page d'accueil.", 'label' => 'Description courte', 'required' => false, 'attr' => ['rows' => 4, 'class' => 'markdown-editor', 'data-md' => 'block']])
+            ->add('longDescription', TextareaType::class, ['label' => 'Description détaillée', 'required' => false, 'attr' => ['rows' => 8, 'class' => 'markdown-editor'], 'help' => 'Affichée sur la page des projets rattachés à cette école (section « École »). Vide : la description courte est utilisée.'])
             ->add('order', IntegerType::class, ['empty_data' => '0', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => "Ordre d'affichage"])
         ;
     }

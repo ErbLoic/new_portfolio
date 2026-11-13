@@ -25,7 +25,7 @@ final class ProjectType extends AbstractType
         $builder
             ->add('title', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Titre'])
             ->add('type', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Type', 'attr' => ['placeholder' => 'Application Web, Mobile, Script…']])
-            ->add('year', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Année'])
+            ->add('monthInput', MonthInputType::class, ['constraints' => [new \Symfony\Component\Validator\Constraints\Regex(pattern: '/^\d{4}-(0[1-9]|1[0-2])$/', message: 'Choisis un mois valide (AAAA-MM).'), new NotBlank(message: 'Ce champ est obligatoire.')]])
             ->add('company', EntityType::class, ['label' => 'Entreprise (optionnel)', 'class' => \App\Entity\Company::class, 'required' => false, 'placeholder' => '— Aucune —'])
             ->add('formation', EntityType::class, ['label' => 'École / formation (optionnel)', 'class' => \App\Entity\Formation::class, 'required' => false, 'placeholder' => '— Aucune —', 'help' => "Pour un projet réalisé en cours : l'école apparaîtra sur la carte et la page du projet."])
             ->add('description', TextareaType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Description courte', 'attr' => ['rows' => 3, 'class' => 'markdown-editor', 'data-md' => 'inline']])

@@ -25,4 +25,8 @@ class Portfolio
     #[ORM\Column(name: 'cv_url', nullable: true)] public ?string $cvUrl = null;
     /** Titre affiché sous le nom (ex. « Chargé de missions SI en alternance »). */
     #[ORM\Column(name: 'job_title', nullable: true)] public ?string $jobTitle = null;
+    /** Afficher le formulaire de contact sur le site. */
+    #[ORM\Column(name: 'show_contact_form', options: ['default' => true])] public bool $showContactForm = true;
+    /** Afficher le bouton et la section « Télécharger mon CV ». */
+    #[ORM\Column(name: 'show_cv', options: ['default' => true])] public bool $showCv = true;
 }

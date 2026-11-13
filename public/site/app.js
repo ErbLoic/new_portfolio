@@ -781,36 +781,22 @@ function renderRealisations(data) {
         });
     }
 
-    // Trier les réalisations par date
-    allRealisationsOnly.sort((a, b) => {
-        const dateA = new Date(a.end_date || a.start_date);
-        const dateB = new Date(b.end_date || b.start_date);
-        return dateA - dateB; // Plus ancien en premier
-    });
+    // Deux colonnes, chacune du plus récent au plus ancien (« sort_key » = « AAAA-MM ») :
+    //   à gauche  → entreprise : réalisations + projets rattachés à une entreprise
+    //   à droite  → école      : projets avec une école renseignée (ou sans entreprise)
+    const byDate = (a, b) => (b.sort_key || '').localeCompare(a.sort_key || '') || (b.id || 0) - (a.id || 0);
+    const isSchool = (p) => !!p.school || !p.company; // école renseignée dans l'admin, ou aucune entreprise
+    const companyItems = [...allRealisationsOnly, ...allProjectsOnly.filter(p => !isSchool(p))].sort(byDate);
+    const schoolItems = allProjectsOnly.filter(isSchool).sort(byDate);
 
-    // Trier les projets par année
-    allProjectsOnly.sort((a, b) => {
-        const yearA = parseInt(a.day) || 0;
-        const yearB = parseInt(b.day) || 0;
-        return yearB - yearA;
-    });
-
-    // Trier réalisations par start_date desc (plus récente en premier)
-    allRealisationsOnly.sort((a, b) => {
-        const dA = new Date(a.start_date); const dB = new Date(b.start_date);
-        return (isNaN(dB) ? 0 : dB.getTime()) - (isNaN(dA) ? 0 : dA.getTime());
-    });
-
-    // Trier projets par year desc (plus récent en premier)
-    allProjectsOnly.sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0));
-
-    // Interleave : position impaire = réalisation, position paire = projet
+    // Une page = [entreprise, école] tant que les deux colonnes ont des projets ;
+    // ensuite les projets restants (d'un seul type) remplissent les deux cases : pas de page à moitié vide.
     allRealisations = [];
-    const maxLen = Math.max(allRealisationsOnly.length, allProjectsOnly.length);
-    for (let i = 0; i < maxLen; i++) {
-        if (i < allRealisationsOnly.length) allRealisations.push(allRealisationsOnly[i]);
-        if (i < allProjectsOnly.length) allRealisations.push(allProjectsOnly[i]);
+    const pairs = Math.min(companyItems.length, schoolItems.length);
+    for (let i = 0; i < pairs; i++) {
+        allRealisations.push(companyItems[i], schoolItems[i]);
     }
+    allRealisations.push(...companyItems.slice(pairs), ...schoolItems.slice(pairs));
 
     // Reset la page et affiche
     realisationsPage = 0;
@@ -832,6 +818,11 @@ function renderRealisationsPage() {
     };
     
     pageItems.forEach(item => {
+        // Case vide : garde « entreprise à gauche, école à droite » quand une colonne est plus courte
+        if (item.itemType === 'empty') {
+            container.innerHTML += '<div class="realisation-placeholder" aria-hidden="true"></div>';
+            return;
+        }
         const isProject = item.itemType === 'project';
         const href = isProject ? `/projet/${item.id}` : `/realisation/${item.id}`;
         
@@ -886,7 +877,7 @@ function renderRealisationsPage() {
                     ` : ''}
                 </div>
                     <div class="realisation-content">
-                        <span class="realisation-type" style="color: ${bgColor}; background: ${bgColor}12;">${isProject ? item.type : (item.type === 'stage' ? 'Stage' : 'Réalisation')}</span>
+                        <span class="realisation-type" style="color: ${bgColor}; background: ${bgColor}12;">${isProject ? item.type : (item.type === 'stage' ? 'Stage' : 'Réalisation')}${item.date_label ? ' · ' + item.date_label : ''}</span>
                         <h4 class="realisation-title">${item.title}</h4>
                         <p class="realisation-description">${item.description_inline || ''}</p>
                         ${item.tags && item.tags.length ? `
@@ -1629,7 +1620,8 @@ function renderPersonalProjects(projects) {
     section.classList.remove('hidden');
 
     // Projets mis en avant d'abord, puis l'ordre défini dans l'admin
-    const sorted = [...projects].sort((a, b) => (b.is_featured === true) - (a.is_featured === true) || (a.order || 0) - (b.order || 0));
+    // Mis en avant d'abord, puis ordre de l'admin, puis du plus récent au plus ancien
+    const sorted = [...projects].sort((a, b) => (b.is_featured === true) - (a.is_featured === true) || (a.order || 0) - (b.order || 0) || (b.sort_key || '').localeCompare(a.sort_key || ''));
     const colors = ['#EC4899', '#14B8A6', '#F59E0B', '#8B5CF6', '#0EA5E9', '#84CC16'];
 
     container.innerHTML = sorted.map((p, i) => {
@@ -1649,7 +1641,7 @@ function renderPersonalProjects(projects) {
                         ${p.is_featured ? `<div class="realisation-company-label" style="background: ${color};">★ Mis en avant</div>` : ''}
                     </div>
                     <div class="realisation-content">
-                        <span class="realisation-type" style="color: ${color}; background: ${color}12;">${p.category || 'Projet perso'}${p.year ? ' · ' + p.year : ''}</span>
+                        <span class="realisation-type" style="color: ${color}; background: ${color}12;">${p.category || 'Projet perso'}${p.date_label ? ' · ' + p.date_label : ''}</span>
                         <h4 class="realisation-title">${p.title}</h4>
                         <p class="realisation-description">${p.description_inline || ''}</p>
                         ${p.tags && p.tags.length ? `<div class="realisation-tags">${p.tags.map(t => `<span class="tag">${t.tag}</span>`).join('')}</div>` : ''}

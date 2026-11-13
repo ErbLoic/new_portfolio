@@ -25,7 +25,7 @@ final class PersonalProjectType extends AbstractType
         $builder
             ->add('title', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Titre'])
             ->add('type', TextType::class, ['label' => 'Type', 'required' => false])
-            ->add('year', TextType::class, ['label' => 'Année', 'required' => false])
+            ->add('monthInput', MonthInputType::class, ['required' => false])
             ->add('githubUrl', UrlType::class, ['label' => 'Lien GitHub', 'required' => false, 'default_protocol' => 'https'])
             ->add('demoUrl', UrlType::class, ['label' => 'Lien de démo', 'required' => false, 'default_protocol' => 'https'])
             ->add('description', TextareaType::class, ['label' => 'Description courte', 'required' => false, 'attr' => ['rows' => 3, 'class' => 'markdown-editor', 'data-md' => 'inline']])

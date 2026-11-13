@@ -9,7 +9,7 @@
       seo_description: item.description ?? '',
       seo_image: (item.images ?? [])|first ? ((item.images|first).image_url) : (owner.photo_url ?? null),
       seo_type: 'article',
-      person: null
+      seo_author: fullname
     } %}
     <link rel="stylesheet" href="{{ asset('site/styles.css') }}" />
     <link rel="stylesheet" href="{{ asset('site/realisation/styles.css') }}" />

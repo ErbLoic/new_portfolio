@@ -11,6 +11,7 @@ class PersonalProject implements GalleryOwner
 {
     use Timestamps;
     use GalleryOwnerTrait;
+    use ProjectDate;
 
     #[ORM\Id, ORM\GeneratedValue, ORM\Column] public ?int $id = null;
     #[ORM\Column] public string $title = '';

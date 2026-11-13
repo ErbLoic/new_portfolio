@@ -46,7 +46,7 @@ final class PortfolioData
             'projects' => array_map(fn (Project $p) => $this->project($p), $this->em->getRepository(Project::class)->findAll()),
             'personalProjects' => array_map(
                 fn (PersonalProject $p) => $this->personalProject($p),
-                $this->em->getRepository(PersonalProject::class)->findBy([], ['order' => 'ASC', 'year' => 'DESC']),
+                $this->em->getRepository(PersonalProject::class)->findBy([], ['order' => 'ASC', 'projectDate' => 'DESC']),
             ),
             'realisations' => $realisationsData,
             'companies' => array_map(fn (Company $c) => $this->company($c), $this->em->getRepository(Company::class)->findAll()),
@@ -80,6 +80,9 @@ final class PortfolioData
             'description_inline' => $this->md->inline($p->description),
             'long_description' => $p->longDescription,
             'year' => $p->year,
+            'date' => $p->getMonthInput(),
+            'date_label' => $p->getDateLabel(),
+            'sort_key' => $p->getSortKey(),
             'github_url' => $p->githubUrl,
             'tags' => array_map(fn ($t) => ['id' => $t->id, 'project_id' => $p->id, 'tag' => $t->tag], $p->tags->toArray()),
             'company' => $p->company ? $this->company($p->company) : null,
@@ -104,6 +107,9 @@ final class PortfolioData
         $data = [
             'id' => $r->id,
             'type' => $r->type,
+            'date' => $r->getMonthInput(),
+            'date_label' => $r->getDateLabel(),
+            'sort_key' => $r->getSortKey(),
             'company_id' => $r->company?->id,
             'title' => $r->title,
             'description' => $r->description,
@@ -131,7 +137,8 @@ final class PortfolioData
             'sector' => $f->title,
             'location' => $f->location,
             'description' => $f->description,
-            'description_html' => $this->md->block($f->description),
+            // Sur les pages projet : la description longue de l'école (sinon la courte)
+            'description_html' => $this->md->block($f->longDescription ?: $f->description),
             'photo_url' => $f->logoUrl,
         ];
     }
@@ -149,6 +156,9 @@ final class PortfolioData
             'description_inline' => $this->md->inline($p->description),
             'long_description' => $p->longDescription,
             'year' => $p->year,
+            'date' => $p->getMonthInput(),
+            'date_label' => $p->getDateLabel(),
+            'sort_key' => $p->getSortKey(),
             'github_url' => $p->githubUrl,
             'demo_url' => $p->demoUrl,
             'order' => $p->order,
@@ -176,7 +186,9 @@ final class PortfolioData
             'year_end' => $p->yearEnd,
             'contact_message' => $p->contactMessage,
             'contact_message_html' => $this->md->block($p->contactMessage),
-            'cv_url' => $p->cvUrl,
+            // CV masqué depuis l'admin : l'URL n'est pas du tout envoyée au site
+            'cv_url' => $p->showCv ? $p->cvUrl : null,
+            'show_contact_form' => $p->showContactForm,
             'job_title' => $p->jobTitle ?: 'Chargé de missions SI en alternance',
         ] + $this->timestamps($p);
     }
