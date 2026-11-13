@@ -80,6 +80,7 @@ final class PortfolioData
             'description_inline' => $this->md->inline($p->description),
             'long_description' => $p->longDescription,
             'year' => $p->year,
+            'github_url' => $p->githubUrl,
             'tags' => array_map(fn ($t) => ['id' => $t->id, 'project_id' => $p->id, 'tag' => $t->tag], $p->tags->toArray()),
             'company' => $p->company ? $this->company($p->company) : null,
             'formation_id' => $p->formation?->id,

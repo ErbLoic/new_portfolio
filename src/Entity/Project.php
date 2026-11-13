@@ -23,6 +23,10 @@ class Project implements GalleryOwner
     #[ORM\Column(type: 'text')] public string $description = '';
     #[ORM\Column(name: 'long_description', type: 'text', nullable: true)] public ?string $longDescription = null;
     #[ORM\Column] public string $year = '';
+    /** Lien facultatif vers le code source (http/https uniquement). */
+    #[ORM\Column(name: 'github_url', length: 500, nullable: true)]
+    #[\Symfony\Component\Validator\Constraints\Url(protocols: ['http', 'https'], requireTld: true, message: 'Lien invalide (ex. https://github.com/toi/projet).')]
+    public ?string $githubUrl = null;
 
     /** @var Collection<int, Competence> */
     #[ORM\ManyToMany(targetEntity: Competence::class)]

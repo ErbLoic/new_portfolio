@@ -30,6 +30,7 @@ final class ProjectType extends AbstractType
             ->add('formation', EntityType::class, ['label' => 'École / formation (optionnel)', 'class' => \App\Entity\Formation::class, 'required' => false, 'placeholder' => '— Aucune —', 'help' => "Pour un projet réalisé en cours : l'école apparaîtra sur la carte et la page du projet."])
             ->add('description', TextareaType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Description courte', 'attr' => ['rows' => 3, 'class' => 'markdown-editor', 'data-md' => 'inline']])
             ->add('longDescription', TextareaType::class, ['label' => 'Description détaillée', 'required' => false, 'attr' => ['rows' => 8, 'class' => 'markdown-editor'], 'help' => "Titres, listes, gras, liens, code… Utilise la barre d'outils ; l'œil affiche l'aperçu."])
+            ->add('githubUrl', UrlType::class, ['label' => 'Lien GitHub (optionnel)', 'required' => false, 'default_protocol' => 'https', 'attr' => ['placeholder' => 'https://github.com/…'], 'help' => 'Affiche un bouton « Code source » sur la page du projet.'])
             ->add('tagsText', TextType::class, ['label' => 'Technologies (séparées par des virgules)', 'required' => false, 'attr' => ['placeholder' => 'PHP, Symfony, MySQL']])
         ;
     }
