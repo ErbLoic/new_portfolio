@@ -5,8 +5,10 @@ framework:
     # Note that the session will be started ONLY if you read or write from it.
     session: true
 
-    #esi: true
-    #fragments: true
+    # Derrière le proxy de Render : on fait confiance aux en-têtes X-Forwarded-*
+    # pour générer des URL en https (liens absolus, aperçus de partage, sitemap).
+    trusted_proxies: '%env(default::TRUSTED_PROXIES)%'
+    trusted_headers: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'x-forwarded-port']
 
 when@test:
     framework:

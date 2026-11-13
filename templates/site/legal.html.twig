@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {% set fullname = owner ? owner.first_name ~ ' ' ~ owner.last_name : 'Le propriétaire du site' %}
+    {% include 'site/_seo.html.twig' with {
+      seo_title: 'Mentions légales et confidentialité — ' ~ fullname,
+      seo_description: 'Mentions légales, données personnelles et cookies du portfolio de ' ~ fullname ~ '.',
+      seo_image: null,
+      seo_type: 'website',
+      person: null
+    } %}
+    <link rel="stylesheet" href="{{ asset('site/styles.css') }}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body class="legal-body">
+    <main class="legal-page">
+      <a href="{{ path('home') }}" class="back-button legal-back">← Retour au portfolio</a>
+      <h1>Mentions légales <span class="italic accent">&amp; confidentialité</span></h1>
+      <p class="legal-updated">Dernière mise à jour : {{ 'now'|date('d/m/Y') }}</p>
+
+      <section>
+        <h2>Éditeur du site</h2>
+        <p>
+          Ce site est un portfolio personnel, non commercial, édité par <strong>{{ fullname }}</strong>, particulier.
+          {% if owner and owner.email %}<br>Contact : <a href="mailto:{{ owner.email }}">{{ owner.email }}</a>{% endif %}
+        </p>
+        <p>Directeur·rice de la publication : {{ fullname }}.</p>
+      </section>
+
+      <section>
+        <h2>Hébergement</h2>
+        {% if hostInfo %}
+          <p>{{ hostInfo|nl2br }}</p>
+        {% else %}
+          <p class="legal-todo">Hébergeur à préciser (nom, adresse et téléphone).</p>
+        {% endif %}
+        <p>Les données du site sont stockées chez Supabase (base de données) et les fichiers (images, CV) chez Cloudflare R2.</p>
+      </section>
+
+      <section>
+        <h2>Propriété intellectuelle</h2>
+        <p>
+          Les textes, visuels et projets présentés sont la propriété de {{ fullname }}, sauf mention contraire.
+          Les logos et marques d'entreprises ou d'écoles restent la propriété de leurs titulaires respectifs
+          et ne sont utilisés que pour illustrer le parcours.
+        </p>
+      </section>
+
+      <section id="donnees">
+        <h2>Données personnelles</h2>
+        <p>
+          Le seul traitement de données personnelles concerne le <strong>formulaire de contact</strong>.
+        </p>
+        <ul>
+          <li><strong>Données collectées :</strong> nom, adresse email et contenu du message.</li>
+          <li><strong>Finalité :</strong> vous répondre. Les données ne servent à rien d'autre (aucune prospection, aucune revente).</li>
+          <li><strong>Base légale :</strong> votre demande de contact (mesures précontractuelles ou intérêt légitime à répondre à un message reçu).</li>
+          <li><strong>Destinataire :</strong> uniquement {{ fullname }}. Le message est transmis par email et <strong>n'est pas enregistré sur ce site</strong>.</li>
+          <li><strong>Durée de conservation :</strong> le temps de l'échange, puis au plus 3 ans dans la messagerie de {{ fullname }}.</li>
+        </ul>
+        <p>
+          Conformément au RGPD et à la loi Informatique et Libertés, vous pouvez accéder à vos données, les faire rectifier
+          ou supprimer, et vous opposer à leur traitement en écrivant à
+          {% if owner and owner.email %}<a href="mailto:{{ owner.email }}">{{ owner.email }}</a>{% else %}l'adresse de contact ci-dessus{% endif %}.
+          Vous pouvez aussi adresser une réclamation à la <a href="https://www.cnil.fr/fr/plaintes" target="_blank" rel="noopener">CNIL</a>.
+        </p>
+      </section>
+
+      <section>
+        <h2>Cookies et stockage local</h2>
+        <p>
+          Ce site <strong>n'utilise aucun cookie publicitaire ni de mesure d'audience</strong>, c'est pourquoi aucun bandeau de consentement n'est affiché.
+          Le navigateur conserve seulement, en local, quelques préférences sans donnée personnelle (par exemple les petits secrets découverts sur le site).
+          L'espace d'administration, réservé au propriétaire, utilise un cookie de session strictement nécessaire.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

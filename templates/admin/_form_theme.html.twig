@@ -1,0 +1,47 @@
+{% use 'form_div_layout.html.twig' %}
+
+{# Champs au style de l'ancien admin : .field-group / .field-label / .field-input #}
+{% block form_row %}
+    {%- set is_check = 'checkbox' in block_prefixes and not ('choice' in block_prefixes) -%}
+    <div class="field-group{{ is_check ? ' field-group--check' }}">
+        {% if is_check %}
+            <label class="check-inline">{{ form_widget(form) }} {{ label is not same as(false) ? label|trans({}, translation_domain) }}</label>
+        {% else %}
+            {{ form_label(form, null, {label_attr: {class: 'field-label'}}) }}
+            {{ form_widget(form) }}
+        {% endif %}
+        {{ form_help(form) }}
+        {% if errors|length %}<div class="field-error">{% for e in errors %}<div><i class="bi bi-exclamation-circle"></i> {{ e.message }}</div>{% endfor %}</div>{% endif %}
+    </div>
+{% endblock %}
+
+{% block form_widget_simple %}
+    {%- set attr = attr|merge({class: (attr.class|default('') ~ ' field-input')|trim}) -%}
+    {{ parent() }}
+{% endblock %}
+
+{% block textarea_widget %}
+    {%- set attr = attr|merge({class: (attr.class|default('') ~ ' field-input field-textarea')|trim}) -%}
+    {{ parent() }}
+{% endblock %}
+
+{% block choice_widget_collapsed %}
+    {%- set attr = attr|merge({class: (attr.class|default('') ~ ' field-input field-select')|trim}) -%}
+    {{ parent() }}
+{% endblock %}
+
+{% block choice_widget_expanded %}
+    <div class="checkbox-grid" {{ block('widget_container_attributes') }}>
+        {% for child in form %}
+            <label>{{ form_widget(child) }} {{ child.vars.label }}</label>
+        {% else %}
+            <span class="field-hint">Aucun élément disponible.</span>
+        {% endfor %}
+    </div>
+{% endblock %}
+
+{% block file_widget %}
+    {%- set attr = attr|merge({class: (attr.class|default('') ~ ' field-input field-file')|trim}) -%}
+    {%- set type = 'file' -%}
+    <input type="file" {{ block('widget_attributes') }}>
+{% endblock %}

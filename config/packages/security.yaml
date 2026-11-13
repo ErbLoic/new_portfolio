@@ -1,0 +1,42 @@
+security:
+    password_hashers:
+        # 'auto' sait aussi vérifier les mots de passe bcrypt créés par l'ancienne API Laravel
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+
+    providers:
+        app_users:
+            entity: { class: App\Entity\User, property: email }
+
+    firewalls:
+        dev:
+            pattern: ^/(_profiler(/|$)|(_wdt|assets|build)/)
+            security: false
+        main:
+            lazy: true
+            provider: app_users
+            form_login:
+                login_path: admin_login
+                check_path: admin_login
+                default_target_path: admin_dashboard
+                enable_csrf: true
+            logout:
+                path: admin_logout
+                target: admin_login
+            login_throttling:
+                max_attempts: 5
+            remember_me:
+                secret: '%kernel.secret%'
+                lifetime: 604800
+
+    access_control:
+        - { path: ^/admin/connexion, roles: PUBLIC_ACCESS }
+        - { path: ^/admin, roles: ROLE_ADMIN }
+
+when@test:
+    security:
+        password_hashers:
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: auto
+                cost: 4
+                time_cost: 3
+                memory_cost: 10

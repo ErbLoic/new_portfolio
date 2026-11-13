@@ -1,0 +1,71 @@
+{% extends 'admin/base.html.twig' %}
+{% block title %}{{ conf.label }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-head__title"><i class="bi {{ conf.icon }}"></i> {{ conf.label }}</h1>
+    <p class="page-head__sub">{{ items|length }} élément(s) — cliquez sur une ligne pour la modifier.</p>
+  </div>
+  <a class="btn btn--primary" href="{{ path('admin_new', {section: section}) }}"><i class="bi bi-plus-lg"></i> {{ conf.new }}</a>
+</div>
+
+<div class="card">
+  <div class="card__body card__body--flush">
+    {% if items is empty %}
+      <div class="empty-state">
+        <i class="bi {{ conf.icon }}"></i>
+        <p>Aucun élément pour l'instant.</p>
+        <a class="btn btn--primary" href="{{ path('admin_new', {section: section}) }}"><i class="bi bi-plus-lg"></i> {{ conf.new }}</a>
+      </div>
+    {% else %}
+      <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            {% if conf.files is defined %}<th></th>{% endif %}
+            {% for label in conf.columns %}<th>{{ label }}</th>{% endfor %}
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+            {% set editUrl = path('admin_edit', {section: section, id: item.id}) %}
+            <tr class="clickable" data-href="{{ editUrl }}">
+              {% if conf.files is defined %}
+                {% set firstFile = attribute(item, conf.files|keys|first) %}
+                <td class="col-thumb">{% if firstFile and admin_is_image(firstFile) %}<img src="{{ firstFile }}" alt="">{% else %}<span class="thumb-empty"><i class="bi {{ conf.icon }}"></i></span>{% endif %}</td>
+              {% endif %}
+              {% for prop, label in conf.columns %}
+                <td>{{ admin_value(attribute(item, prop)) }}</td>
+              {% endfor %}
+              <td class="col-actions">
+                {% if conf.toggle is defined %}
+                  {% set on = attribute(item, conf.toggle) %}
+                  <form method="post" action="{{ path('admin_toggle', {section: section, id: item.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('toggle' ~ section ~ item.id) }}">
+                    <button class="action-btn" title="{{ on ? 'Désactiver' : 'Activer' }}"><i class="bi {{ on ? 'bi-toggle-on' : 'bi-toggle-off' }}"></i></button>
+                  </form>
+                {% endif %}
+                {% if conf.public is defined %}
+                  <a class="action-btn" href="{{ path(conf.public, {id: item.id}) }}" target="_blank" title="Voir sur le site"><i class="bi bi-box-arrow-up-right"></i></a>
+                {% endif %}
+                <a class="action-btn" href="{{ editUrl }}" title="Modifier"><i class="bi bi-pencil"></i></a>
+                <form method="post" action="{{ path('admin_delete', {section: section, id: item.id}) }}" data-confirm="Supprimer définitivement cet élément ?">
+                  <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ section ~ item.id) }}">
+                  <button class="action-btn action-btn--danger" title="Supprimer"><i class="bi bi-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% endif %}
+  </div>
+</div>
+<script>
+  document.querySelectorAll('tr[data-href]').forEach(tr => tr.addEventListener('click', e => {
+    if (!e.target.closest('form,a,button')) location.href = tr.dataset.href;
+  }));
+</script>
+{% endblock %}

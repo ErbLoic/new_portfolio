@@ -1,0 +1,1663 @@
+// Configuration de l'API
+const API_BASE_URL = ''; // Symfony : même origine
+const BASE_URL = '';
+
+// Clé de cache localStorage
+const CACHE_KEY = 'portfolio_data_cache';
+const MESSAGES_CACHE_KEY = 'portfolio_messages_cache';
+const FORMATIONS_CACHE_KEY = 'portfolio_formations_cache';
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
+const MESSAGES_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes pour les messages (changent souvent)
+
+// Cache des données
+let portfolioData = null;
+
+// ========================================
+// Helper pour les images (Cloudflare R2) - Nouvelle API
+// ========================================
+
+function getImageUrl(img) {
+    if (!img) return '';
+    // Si c'est une string, c'est déjà l'URL
+    if (typeof img === 'string') {
+        if (img.startsWith('http')) return img;
+        return `${img.startsWith('/') ? '' : '/'}${img}`;
+    }
+    // Chercher les propriétés communes pour l'URL
+    const url = img.url || img.image_url || img.path || img.src || img.file || img.photo_url || '';
+    if (!url) return '';
+    // Si l'URL est déjà absolue (Cloudflare R2 ou autre)
+    if (url.startsWith('http')) return url;
+    // Sinon, ajouter le base URL
+    return `${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+function getImageAlt(img, fallback) {
+    if (!img) return fallback;
+    if (typeof img === 'string') return fallback;
+    return img.alt || img.caption || img.title || img.description || fallback;
+}
+
+// ========================================
+// Gestion des erreurs API robuste
+// ========================================
+
+function handleApiError(error, context = 'API') {
+    const errorMsg = error.message || 'Une erreur est survenue';
+    console.error(`[${context}] Erreur:`, error);
+    
+    // Afficher notification discrète si possible
+    if (context !== 'Photo Profil') { // Éviter le spam pour les petits éléments
+        showNotification(errorMsg, 'error', 5000);
+    }
+    
+    // Déterminer le type d'erreur
+    if (error.statusCode === 404 || errorMsg.includes('404')) {
+        console.warn(`[${context}] Ressource non trouvée`);
+    } else if (error.statusCode === 422 || errorMsg.includes('422')) {
+        console.warn(`[${context}] Données invalides`);
+    } else {
+        console.error(`[${context}] Erreur serveur (${error.statusCode || 500})`);
+    }
+}
+
+function parseApiResponse(response) {
+    // Structure API: { success: boolean, message?: string, data: any } ou { error: string }
+    // Les requêtes GET retournent directement les données ou { success, message, data }
+    
+    // Si la réponse a un champ success explicite
+    if (response && typeof response === 'object' && 'success' in response) {
+        if (!response.success) {
+            const error = new Error(response.error || response.message || 'Erreur API');
+            error.statusCode = response.statusCode || 500;
+            throw error;
+        }
+        return response.data;
+    }
+    
+    // Si la réponse a un champ error
+    if (response && typeof response === 'object' && 'error' in response) {
+        throw new Error(response.error);
+    }
+    
+    // Sinon, retourner directement (GET routes retournent les données directement)
+    return response;
+}
+
+// ========================================
+// Notifications visuelles
+// ========================================
+
+function showNotification(message, type = 'info', duration = 5000) {
+    try {
+        // Créer conteneur de notifications s'il n'existe pas
+        let notificationContainer = document.getElementById('notification-container');
+        if (!notificationContainer) {
+            notificationContainer = document.createElement('div');
+            notificationContainer.id = 'notification-container';
+            notificationContainer.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                max-width: 400px;
+            `;
+            document.body.appendChild(notificationContainer);
+        }
+
+        // Créer notification
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.style.cssText = `
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            animation: slideIn 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        `;
+
+        // Styles basés sur le type
+        const styles = {
+            'error': {
+                bg: '#FFE8E8',
+                text: '#C41E3A',
+                icon: '⚠️'
+            },
+            'success': {
+                bg: '#E8F5E9',
+                text: '#2E7D32',
+                icon: '✅'
+            },
+            'info': {
+                bg: '#E3F2FD',
+                text: '#1565C0',
+                icon: 'ℹ️'
+            },
+            'warning': {
+                bg: '#FFF3E0',
+                text: '#E65100',
+                icon: '⚡'
+            }
+        };
+
+        const style = styles[type] || styles['info'];
+        notification.style.backgroundColor = style.bg;
+        notification.style.color = style.text;
+        notification.style.border = `1px solid ${style.text}30`;
+
+        // Contenu
+        notification.innerHTML = `
+            <span style="font-size: 18px; flex-shrink: 0;">${style.icon}</span>
+            <span style="flex: 1; font-size: 0.95rem; line-height: 1.4;">${message}</span>
+            <button style="
+                background: none;
+                border: none;
+                color: inherit;
+                cursor: pointer;
+                font-size: 20px;
+                padding: 0;
+                flex-shrink: 0;
+            " onclick="this.parentElement.remove();">✕</button>
+        `;
+
+        notificationContainer.appendChild(notification);
+
+        // Auto-remove
+        if (duration > 0) {
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-out forwards';
+                setTimeout(() => notification.remove(), 300);
+            }, duration);
+        }
+    } catch (e) {
+        console.warn('Erreur affichage notification:', e);
+    }
+}
+
+// Pagination state
+let projectsPage = 0;
+let realisationsPage = 0;
+let allProjects = [];
+let allRealisations = [];
+const ITEMS_PER_PAGE = 2;
+let realisationsAutoScroll = null;
+
+// Messages carousel state
+let messagesIndex = 0;
+let allMessages = [];
+let messagesAutoSlide = null;
+
+// ========================================
+// Système de cache localStorage
+// ========================================
+
+function getCachedData() {
+    return null;
+}
+
+
+function setCachedData(data) {
+    try {
+        const cacheEntry = {
+            data: data,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cacheEntry));
+        console.log('Données mises en cache');
+    } catch (error) {
+        console.warn('Erreur lors de la mise en cache:', error);
+    }
+}
+
+function clearCache() {
+    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(MESSAGES_CACHE_KEY);
+    localStorage.removeItem(FORMATIONS_CACHE_KEY);
+    console.log('Cache vidé');
+}
+
+// Fonctions génériques pour cache avec durée personnalisée
+function getCachedItem(key) {
+    return null;
+}
+
+
+function setCachedItem(key, data, duration = CACHE_DURATION) {
+    try {
+        const cacheEntry = {
+            data: data,
+            timestamp: Date.now(),
+            duration: duration
+        };
+        localStorage.setItem(key, JSON.stringify(cacheEntry));
+    } catch (error) {
+        console.warn('Erreur lors de la mise en cache:', error);
+    }
+}
+
+// ========================================
+// Système de chargement amélioré
+// ========================================
+
+const loadingMessages = [
+    { status: "Connexion au serveur...", tip: "Le serveur se réveille, cela peut prendre quelques secondes" },
+    { status: "Réveil du serveur...", tip: "Les serveurs gratuits s'endorment après 15 min d'inactivité" },
+    { status: "Établissement de la connexion...", tip: "Première visite ? Le chargement initial est plus long" },
+    { status: "Chargement des données...", tip: "Merci de patienter, c'est bientôt prêt !" },
+    { status: "Presque terminé...", tip: "Les prochaines visites seront plus rapides" },
+    { status: "Finalisation...", tip: "Le serveur est maintenant actif" },
+    { status: "C'est parti !", tip: "Merci pour votre patience, profitez du portfolio !" ,
+    }
+
+];
+
+let loadingInterval = null;
+let progressInterval = null;
+let currentMessageIndex = 0;
+let currentProgress = 0;
+
+function updateLoadingMessage() {
+    const statusEl = document.getElementById('loader-status');
+    const tipEl = document.getElementById('loader-tip');
+    
+    if (statusEl && tipEl && currentMessageIndex < loadingMessages.length) {
+        const msg = loadingMessages[currentMessageIndex];
+        statusEl.style.animation = 'none';
+        tipEl.style.animation = 'none';
+        
+        // Force reflow
+        void statusEl.offsetHeight;
+        void tipEl.offsetHeight;
+        
+        statusEl.textContent = msg.status;
+        tipEl.textContent = msg.tip;
+        
+        statusEl.style.animation = 'fade-text 0.5s ease-out';
+        tipEl.style.animation = 'fade-text 0.5s ease-out';
+        
+        currentMessageIndex++;
+    }
+}
+
+function updateProgress(targetProgress) {
+    const progressBar = document.getElementById('loader-progress-bar');
+    if (progressBar) {
+        currentProgress = Math.min(targetProgress, 95); // Ne jamais dépasser 95% avant la fin
+        progressBar.style.width = `${currentProgress}%`;
+    }
+}
+
+function startLoadingAnimation() {
+    currentMessageIndex = 0;
+    currentProgress = 0;
+    
+    // Mettre à jour les messages toutes les 4 secondes
+    updateLoadingMessage();
+    loadingInterval = setInterval(() => {
+        updateLoadingMessage();
+    }, 4000);
+    
+    // Simuler une progression réaliste
+    progressInterval = setInterval(() => {
+        // Progression plus lente au début (cold start), plus rapide ensuite
+        const increment = currentProgress < 30 ? 2 : currentProgress < 60 ? 4 : 3;
+        updateProgress(currentProgress + increment);
+    }, 500);
+}
+
+function stopLoadingAnimation() {
+    clearInterval(loadingInterval);
+    clearInterval(progressInterval);
+    updateProgress(100);
+}
+
+// ========================================
+// Fonctions utilitaires
+// ========================================
+
+async function fetchAPI(endpoint) {
+    // Les données sont injectées par Symfony dans window.PORTFOLIO_DATA (plus d'API séparée)
+    const data = window.PORTFOLIO_DATA || {};
+    if (endpoint === '/all') return data;
+    if (endpoint === '/messages') return data.messages || [];
+    if (endpoint === '/formations') return data.formations || [];
+    throw new Error(`Donnée inconnue : ${endpoint}`);
+}
+
+// Ping initial pour réveiller le serveur
+async function warmupServer() {
+    try {
+        const startTime = Date.now();
+        const response = await fetch(`${API_BASE_URL}/ping`, { 
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'omit'
+            // GET sans body - pas de headers pour requête SIMPLE
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const duration = Date.now() - startTime;
+        console.log(`✅ Serveur réveillé en ${duration}ms`);
+        return true;
+    } catch (error) {
+        if (error.message.includes('Failed to fetch')) {
+            console.warn('⚠️ Problème CORS au démarrage - Utilisation du cache');
+        } else {
+            console.warn('⚠️ Ping échoué, tentative de chargement direct...', error.message);
+        }
+        return false;
+    }
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const months = [
+        'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+        'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
+    ];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+// ========================================
+// Ping pour garder le serveur éveillé
+// ========================================
+
+function startPingInterval() {
+    // Ping toutes les 5 minutes pour garder le serveur éveillé
+    setInterval(async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/ping`, {
+                method: 'GET',
+                mode: 'cors',
+                credentials: 'omit'
+                // GET sans body - pas de headers pour requête SIMPLE
+            });
+            
+            if (response.ok) {
+                console.log('✅ Ping envoyé au serveur');
+            }
+        } catch (error) {
+            console.debug('⚠️ Erreur ping en arrière-plan (non critique)');
+        }
+    }, 5 * 60 * 1000); // 5 minutes
+}
+
+// ========================================
+// Chargement des données
+// ========================================
+
+async function loadAllData(useCache = true) {
+    // Essayer de charger depuis le cache d'abord
+    if (useCache) {
+        const cachedData = getCachedData();
+        if (cachedData) {
+            portfolioData = cachedData;
+            console.log('✅ Données chargées depuis le cache local');
+            return cachedData;
+        }
+    }
+    
+    // Sinon charger depuis l'API
+    try {
+        console.log('🔄 Chargement depuis l\'API...');
+        const response = await fetchAPI('/all');
+        portfolioData = response;
+        
+        // Mettre en cache les nouvelles données
+        if (portfolioData) {
+            setCachedData(portfolioData);
+            console.log('✅ Données chargées depuis l\'API et mises en cache');
+        }
+        
+        return portfolioData;
+    } catch (error) {
+        console.error('❌ Erreur lors du chargement depuis l\'API:', error.message);
+        
+        // Afficher un message d'erreur clair
+        if (error.isCorsError) {
+            console.error('⚠️ Problème CORS détecté - Le serveur n\'a pas configuré les en-têtes CORS');
+            showNotification(
+                'Impossible de charger les données du serveur. Utilisation du cache local.',
+                'warning',
+                6000
+            );
+        } else {
+            handleApiError(error, 'Chargement principal');
+            showNotification(
+                error.message || 'Erreur lors du chargement des données',
+                'error',
+                6000
+            );
+        }
+        
+        // En cas d'erreur, essayer de retourner les données du cache même expirées
+        const fallbackCache = localStorage.getItem(CACHE_KEY);
+        if (fallbackCache) {
+            try {
+                const { data } = JSON.parse(fallbackCache);
+                console.warn('⚠️ Utilisation du cache de secours (données possiblement anciennes)');
+                return data;
+            } catch (e) {
+                console.error('❌ Cache de secours invalide:', e);
+                return null;
+            }
+        }
+        
+        console.error('❌ Aucune donnée disponible (pas de cache)');
+        return null;
+    }
+}
+
+// Rafraîchir les données en arrière-plan ET mettre à jour l'UI en temps réel
+async function refreshDataInBackground() {
+    try {
+        console.log('Rafraîchissement des données en arrière-plan...');
+        const freshData = await fetchAPI('/all');
+        if (freshData) {
+            // Vérifier si les données ont changé avant de re-render
+            const oldCache = localStorage.getItem(CACHE_KEY);
+            const oldData = oldCache ? JSON.parse(oldCache).data : null;
+            
+            // Mettre à jour le cache principal
+            setCachedData(freshData);
+            
+            // Mettre à jour le cache des formations si présentes dans /all
+            if (freshData.formations) {
+                setCachedItem(FORMATIONS_CACHE_KEY, freshData.formations, CACHE_DURATION);
+            }
+            
+            // Mettre à jour l'UI en temps réel si les données ont changé
+            if (JSON.stringify(freshData) !== JSON.stringify(oldData)) {
+                console.log('Nouvelles données détectées, mise à jour de l\'interface...');
+                renderAllSections(freshData);
+            } else {
+                console.log('Données identiques, pas de mise à jour nécessaire');
+                // Quand même rafraîchir les messages (changent souvent)
+                refreshMessagesInBackground();
+            }
+        }
+    } catch (error) {
+        console.warn('Rafraîchissement en arrière-plan échoué:', error);
+    }
+}
+
+// ========================================
+// Rendu des sections
+// ========================================
+
+function renderPortfolio(data) {
+    if (!data || !data.portfolio) return;
+
+    const portfolio = data.portfolio;
+
+    // Hero
+    document.getElementById('first-name').textContent = portfolio.first_name || 'Prénom';
+    document.getElementById('last-name').textContent = portfolio.last_name || 'Nom';
+    const fullName = `${portfolio.first_name || ''} ${portfolio.last_name || ''}`.trim();
+    document.title = portfolio.job_title ? `${fullName} — ${portfolio.job_title}` : fullName;
+    const jobEl = document.getElementById('hero-job-title');
+    if (jobEl) jobEl.textContent = portfolio.job_title || '';
+
+    // Profil
+    if (portfolio.photo_url) {
+        try {
+            const photoProfil = document.getElementById('profil-photo');
+            const imgUrl = getImageUrl(portfolio.photo_url);
+            photoProfil.src = imgUrl;
+            photoProfil.alt = `${portfolio.first_name || 'Profil'} ${portfolio.last_name || ''}`;
+            photoProfil.loading = 'lazy';
+            photoProfil.style.objectFit = 'cover';
+            photoProfil.onerror = () => {
+                console.warn('Erreur chargement photo profil:', imgUrl);
+                photoProfil.style.opacity = '0.5';
+            };
+        } catch (error) {
+            handleApiError(error, 'Photo Profil');
+        }
+    }
+    document.getElementById('profil-bio').innerHTML = portfolio.bio_html || '';
+    document.getElementById('promo-years').textContent = portfolio.job_title || '';
+
+    // Stats
+    const statComp = document.getElementById('stat-competences');
+    if (statComp) statComp.textContent = data.competences?.length || 0;
+    document.getElementById('stat-projects').textContent = data.projects?.length || 0;
+    document.getElementById('stat-stages').textContent = data.stages?.length || 0;
+    const techs = new Set();
+    [...(data.projects || []), ...(data.realisations || []), ...(data.personalProjects || [])]
+        .forEach(p => (p.tags || []).forEach(t => techs.add(t.tag.trim().toLowerCase())));
+    const statTechs = document.getElementById('stat-techs');
+    if (statTechs) statTechs.textContent = techs.size;
+
+    // Contact
+    document.getElementById('contact-message').innerHTML = portfolio.contact_message_html || '';
+    document.getElementById('contact-email').textContent = portfolio.email || '';
+    document.getElementById('email-cta').href = `mailto:${portfolio.email}`;
+
+    if (portfolio.linkedin_url) {
+        document.getElementById('contact-linkedin').href = portfolio.linkedin_url;
+    }
+    if (portfolio.github_url) {
+        document.getElementById('contact-github').href = portfolio.github_url;
+    }
+
+    // CV
+    const cvBtn = document.getElementById('hero-cv-btn');
+    if (cvBtn && portfolio.cv_url) {
+        cvBtn.href = portfolio.cv_url;
+        cvBtn.style.display = '';
+    }
+    const cvSection = document.getElementById('cv-section');
+    if (cvSection) {
+        if (portfolio.cv_url) {
+            document.getElementById('cv-download-btn').href = portfolio.cv_url;
+            cvSection.style.display = '';
+        } else {
+            cvSection.style.display = 'none';
+        }
+    }
+
+    // Footer
+    // Pied de page rendu côté serveur (nom, titre, mentions légales)
+}
+
+function renderCompetences(competences) {
+    if (!competences || !competences.length) return;
+
+    const container = document.getElementById('competences-grid');
+    container.innerHTML = '';
+
+    // Grouper par bloc
+    const blocs = {};
+    competences.forEach(comp => {
+        if (!blocs[comp.bloc]) {
+            blocs[comp.bloc] = [];
+        }
+        blocs[comp.bloc].push(comp);
+    });
+
+    // Générer le HTML pour chaque bloc
+    Object.keys(blocs).sort().forEach(bloc => {
+        const blocClass = bloc.toLowerCase();
+        const comps = blocs[bloc];
+
+        const blocHtml = `
+            <div class="competence-bloc ${blocClass}">
+                <div class="bloc-header">
+                    <div class="bloc-icon">${bloc}</div>
+                    <h3 class="bloc-title">Bloc ${bloc}</h3>
+                </div>
+                <div class="competences-list">
+                    ${comps.map(comp => `
+                        <div class="competence-item">
+                            <span class="competence-code">${comp.code}</span>
+                            <p class="competence-label">${comp.label}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+        container.innerHTML += blocHtml;
+    });
+}
+
+function renderStages(stages) {
+    if (!stages || !stages.length) {
+        document.querySelector('.stages-section')?.classList.add('hidden');
+        return;
+    }
+
+    document.querySelector('.stages-section')?.classList.remove('hidden');
+    const container = document.getElementById('stages-timeline');
+    container.innerHTML = '';
+
+    // Trier les stages par date de fin (le plus récent en premier)
+    const sortedStages = [...stages].sort((a, b) => {
+        const dateA = new Date(a.end_date || a.start_date);
+        const dateB = new Date(b.end_date || b.start_date);
+        return dateB - dateA;
+    });
+
+    // Type d'expérience : stage, alternance ou job
+    const EXPERIENCE_TYPES = { stage: 'Stage', alternance: 'Alternance', job: 'Job' };
+
+    sortedStages.forEach((stage, index) => {
+        const isRight = index % 2 === 1;
+        const typeLabel = EXPERIENCE_TYPES[stage.type] || 'Stage';
+        const period = `${formatDate(stage.start_date)} — ${stage.is_current ? 'En cours' : formatDate(stage.end_date)}`;
+        const rightBadge = stage.is_current
+            ? `<span class="formation-current-badge"><span class="formation-current-dot"></span> En cours</span>`
+            : (stage.duration ? `<span class="stage-duration">${stage.duration}</span>` : '');
+
+        const companyName = stage.company?.name || 'Entreprise';
+        const companyInitial = companyName.charAt(0).toUpperCase();
+        const logoInner = stage.company?.photo_url
+            ? `<img src="${getImageUrl(stage.company.photo_url)}" alt="${companyName}" loading="lazy"
+                    onerror="this.style.display='none';this.parentElement.dataset.fallback='${companyInitial}';this.parentElement.classList.add('stage-logo-col--fallback');" />`
+            : ``;
+        const logoColClass = stage.company?.photo_url ? '' : 'stage-logo-col--fallback';
+
+        const stageHtml = `
+            <div class="timeline-item ${isRight ? 'right' : ''}">
+                <div class="timeline-dot"></div>
+                <div class="stage-card" ${isRight ? 'style="grid-column: 2;"' : ''}>
+                    <div class="stage-card-inner">
+                        <div class="stage-logo-col ${logoColClass}" data-fallback="${companyInitial}">
+                            ${logoInner}
+                        </div>
+                        <div class="stage-content">
+                            <div class="stage-content-top">
+                                <div>
+                                    <h4 class="stage-company">${companyName}</h4>
+                                    ${stage.company?.sector ? `<p class="stage-sector">${stage.company.sector}</p>` : ''}
+                                </div>
+                                <span class="stage-work-badge">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
+                                    ${typeLabel}
+                                </span>
+                            </div>
+                            <div class="stage-divider"></div>
+                            ${stage.role ? `<p class="stage-role">${stage.role}</p>` : ''}
+                            <div class="stage-meta-row">
+                                <p class="stage-dates">${period}</p>
+                                ${rightBadge}
+                            </div>
+                            ${stage.description_html ? `<div class="stage-description md">${stage.description_html}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+                ${isRight ? '' : '<div></div>'}
+            </div>
+        `;
+
+        container.innerHTML += stageHtml;
+    });
+}
+
+function renderFormations(formations) {
+    if (!formations || !formations.length) {
+        document.querySelector('.formations-section')?.classList.add('hidden');
+        return;
+    }
+
+    document.querySelector('.formations-section')?.classList.remove('hidden');
+    const container = document.getElementById('formations-timeline');
+    container.innerHTML = '';
+
+    // Trier les formations par date de fin (le plus récent en premier)
+    const sortedFormations = [...formations].sort((a, b) => {
+        const dateA = new Date(a.end_date || a.start_date);
+        const dateB = new Date(b.end_date || b.start_date);
+        return dateB - dateA;
+    });
+
+    sortedFormations.forEach((formation, index) => {
+        const isRight = index % 2 === 1;
+        const period = formation.period || `${formatDate(formation.start_date)} — ${formation.is_current ? 'En cours' : formatDate(formation.end_date)}`;
+        const schoolName = formation.school || 'École';
+        const schoolInitial = schoolName.charAt(0).toUpperCase();
+
+        const logoInner = formation.logo_url
+            ? `<img src="${getImageUrl(formation.logo_url)}" alt="${schoolName}" loading="lazy"
+                    onerror="this.style.display='none';this.parentElement.dataset.fallback='${schoolInitial}';this.parentElement.classList.add('form-logo-col--fallback');" />`
+            : ``;
+        const logoColClass = formation.logo_url ? '' : 'form-logo-col--fallback';
+
+        const rightBadge = formation.is_current
+            ? `<span class="formation-current-badge"><span class="formation-current-dot"></span> En cours</span>`
+            : (formation.degree_type ? `<span class="formation-degree-badge">${formation.degree_type}</span>` : '');
+
+        const formationHtml = `
+            <div class="timeline-item formation ${isRight ? 'right' : ''}">
+                <div class="timeline-dot formation-dot"></div>
+                <div class="formation-card-v2" ${isRight ? 'style="grid-column: 2;"' : ''}>
+                    <div class="stage-card-inner">
+                        <div class="form-logo-col ${logoColClass}" data-fallback="${schoolInitial}">
+                            ${logoInner}
+                        </div>
+                        <div class="stage-content">
+                            <div class="stage-content-top">
+                                <div>
+                                    <h4 class="stage-company">${formation.title || 'Formation'}</h4>
+                                    <p class="form-school">${schoolName}${formation.location ? ' — ' + formation.location : ''}</p>
+                                </div>
+                                <span class="formation-badge">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                                    Formation
+                                </span>
+                            </div>
+                            <div class="stage-divider form-divider"></div>
+                            <div class="stage-meta-row">
+                                <p class="formation-dates">${period}</p>
+                                ${rightBadge}
+                            </div>
+                            ${formation.description_html ? `<div class="stage-description md">${formation.description_html}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+                ${isRight ? '' : '<div></div>'}
+            </div>
+        `;
+
+        container.innerHTML += formationHtml;
+    });
+}
+
+function renderRealisations(data) {
+    if (!data) return;
+
+    const container = document.getElementById('realisations-by-company');
+    container.innerHTML = '';
+
+    // Collecte toutes les réalisations
+    let allRealisationsOnly = [];
+    if (data.realisations && data.companies && data.realisationsByCompany) {
+        const realisationsByCompany = data.realisationsByCompany || {};
+        data.companies.forEach(company => {
+            const companyRealisations = realisationsByCompany[company.id];
+            if (companyRealisations && companyRealisations.length) {
+                companyRealisations.forEach(real => {
+                    allRealisationsOnly.push({ ...real, company, itemType: 'realisation' });
+                });
+            }
+        });
+    }
+
+    // Collecte tous les projets
+    let allProjectsOnly = [];
+    if (data.projects && Array.isArray(data.projects)) {
+        data.projects.forEach(projet => {
+            allProjectsOnly.push({ ...projet, itemType: 'project' });
+        });
+    }
+
+    // Trier les réalisations par date
+    allRealisationsOnly.sort((a, b) => {
+        const dateA = new Date(a.end_date || a.start_date);
+        const dateB = new Date(b.end_date || b.start_date);
+        return dateA - dateB; // Plus ancien en premier
+    });
+
+    // Trier les projets par année
+    allProjectsOnly.sort((a, b) => {
+        const yearA = parseInt(a.day) || 0;
+        const yearB = parseInt(b.day) || 0;
+        return yearB - yearA;
+    });
+
+    // Trier réalisations par start_date desc (plus récente en premier)
+    allRealisationsOnly.sort((a, b) => {
+        const dA = new Date(a.start_date); const dB = new Date(b.start_date);
+        return (isNaN(dB) ? 0 : dB.getTime()) - (isNaN(dA) ? 0 : dA.getTime());
+    });
+
+    // Trier projets par year desc (plus récent en premier)
+    allProjectsOnly.sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0));
+
+    // Interleave : position impaire = réalisation, position paire = projet
+    allRealisations = [];
+    const maxLen = Math.max(allRealisationsOnly.length, allProjectsOnly.length);
+    for (let i = 0; i < maxLen; i++) {
+        if (i < allRealisationsOnly.length) allRealisations.push(allRealisationsOnly[i]);
+        if (i < allProjectsOnly.length) allRealisations.push(allProjectsOnly[i]);
+    }
+
+    // Reset la page et affiche
+    realisationsPage = 0;
+    renderRealisationsPage();
+    initRealisationsPagination();
+}
+
+function renderRealisationsPage() {
+    const container = document.getElementById('realisations-by-company');
+    container.innerHTML = '';
+    
+    const start = realisationsPage * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    const pageItems = allRealisations.slice(start, end);
+    
+    const typeColors = {
+        'stage': '#000DFF',
+        'projet': '#6B73FF',
+    };
+    
+    pageItems.forEach(item => {
+        const isProject = item.itemType === 'project';
+        const href = isProject ? `/projet/${item.id}` : `/realisation/${item.id}`;
+        
+        // Déterminer la couleur
+        let bgColor;
+        if (isProject) {
+            const projectTypeColors = {
+                'Application Web': '#0EA5E9',
+                'Web': '#0EA5E9',
+                'Application Mobile': '#A855F7',
+                'Flutter': '#06B6D4',
+                'Script & Automatisation': '#F59E0B',
+                'Application C#': '#EF4444',
+                'Base de données': '#10B981',
+                'BDD': '#10B981',
+            };
+            const colorIndex = item.id ? parseInt(item.id.toString()) : 0;
+            const fallbackColors = ['#7C3AED', '#EC4899', '#6366F1', '#14B8A6', '#FB923C', '#84CC16', '#F43F5E', '#22D3EE'];
+            bgColor = projectTypeColors[item.type] || fallbackColors[colorIndex % fallbackColors.length];
+        } else {
+            const colorIndex = item.id ? parseInt(item.id.toString()) : 0;
+            const colors = ['#7C3AED', '#0EA5E9', '#F59E0B', '#10B981', '#EF4444', '#EC4899', '#6366F1', '#14B8A6', '#F43F5E', '#8B5CF6', '#06B6D4', '#84CC16', '#FB923C', '#A855F7', '#22D3EE', '#4ADE80'];
+            bgColor = colors[colorIndex % colors.length];
+        }
+        
+        const realHtml = `
+            <a href="${href}" class="realisation-card-link">
+                <div class="realisation-card">
+                    <div class="realisation-image" style="background: linear-gradient(135deg, ${bgColor}15, ${bgColor}05);">
+                    <div class="project-decoration-1" style="background: ${bgColor};"></div>
+                    <div class="project-decoration-2" style="background: ${bgColor};"></div>
+
+                    ${item.company?.photo_url ? `
+                        <img src="${getImageUrl(item.company.photo_url)}" 
+                             alt="${item.company?.name || ''}" 
+                             class="realisation-image-logo" 
+                             loading="lazy"
+                             onerror="this.style.display='none'; this.closest('.realisation-image').querySelector('.project-icon').style.display='flex';" />
+                        <div class="project-icon" style="background: ${bgColor}; box-shadow: 0 8px 24px ${bgColor}40; display: none;">
+                    ` : `
+                        <div class="project-icon" style="background: ${bgColor}; box-shadow: 0 8px 24px ${bgColor}40;">
+                    `}
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                                <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3m8 0h3a2 2 0 002-2v-3" stroke="white" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                        </div>
+                    
+                    ${item.company?.name ? `
+                        <div class="realisation-company-label" style="background: ${bgColor};">
+                            ${item.company.name}
+                        </div>
+                    ` : ''}
+                </div>
+                    <div class="realisation-content">
+                        <span class="realisation-type" style="color: ${bgColor}; background: ${bgColor}12;">${isProject ? item.type : (item.type === 'stage' ? 'Stage' : 'Réalisation')}</span>
+                        <h4 class="realisation-title">${item.title}</h4>
+                        <p class="realisation-description">${item.description_inline || ''}</p>
+                        ${item.tags && item.tags.length ? `
+                            <div class="realisation-tags">
+                                ${item.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <span class="card-arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </span>
+                </div>
+            </a>
+        `;
+        container.innerHTML += realHtml;
+    });
+    
+    updateRealisationsDots();
+    updateRealisationsArrows();
+}
+
+function startRealisationsAutoScroll() {
+    stopRealisationsAutoScroll();
+    const totalPages = Math.ceil(allRealisations.length / ITEMS_PER_PAGE);
+    if (totalPages <= 1) return;
+    realisationsAutoScroll = setInterval(() => {
+        realisationsPage = (realisationsPage + 1) % totalPages;
+        renderRealisationsPage();
+    }, 30000);
+}
+
+function stopRealisationsAutoScroll() {
+    if (realisationsAutoScroll) {
+        clearInterval(realisationsAutoScroll);
+        realisationsAutoScroll = null;
+    }
+}
+
+function initRealisationsPagination() {
+    const prevBtn = document.getElementById('realisations-prev');
+    const nextBtn = document.getElementById('realisations-next');
+    const dotsContainer = document.getElementById('realisations-dots');
+    const carousel = document.getElementById('realisations-by-company')?.closest('.paginated-container');
+
+    const totalPages = Math.ceil(allRealisations.length / ITEMS_PER_PAGE);
+
+    // Créer les dots
+    dotsContainer.innerHTML = '';
+    for (let i = 0; i < totalPages; i++) {
+        const dot = document.createElement('button');
+        dot.className = `pagination-dot ${i === 0 ? 'active' : ''}`;
+        dot.setAttribute('aria-label', `Page ${i + 1}`);
+        dot.addEventListener('click', () => {
+            realisationsPage = i;
+            renderRealisationsPage();
+            startRealisationsAutoScroll();
+        });
+        dotsContainer.appendChild(dot);
+    }
+
+    // Event listeners pour les flèches
+    prevBtn.onclick = () => {
+        if (realisationsPage > 0) {
+            realisationsPage--;
+            renderRealisationsPage();
+            startRealisationsAutoScroll();
+        }
+    };
+
+    nextBtn.onclick = () => {
+        if (realisationsPage < totalPages - 1) {
+            realisationsPage++;
+            renderRealisationsPage();
+            startRealisationsAutoScroll();
+        }
+    };
+
+    // Pause au hover
+    if (carousel) {
+        carousel.addEventListener('mouseenter', stopRealisationsAutoScroll);
+        carousel.addEventListener('mouseleave', startRealisationsAutoScroll);
+    }
+
+    updateRealisationsArrows();
+    startRealisationsAutoScroll();
+}
+
+function updateRealisationsDots() {
+    const dots = document.querySelectorAll('#realisations-dots .pagination-dot');
+    dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === realisationsPage);
+    });
+}
+
+function updateRealisationsArrows() {
+    const prevBtn = document.getElementById('realisations-prev');
+    const nextBtn = document.getElementById('realisations-next');
+    const totalPages = Math.ceil(allRealisations.length / ITEMS_PER_PAGE);
+    
+    prevBtn.disabled = realisationsPage === 0;
+    nextBtn.disabled = realisationsPage >= totalPages - 1;
+    
+    // Masquer si une seule page
+    const container = document.querySelector('#realisations-by-company').closest('.paginated-container');
+    const dotsContainer = document.getElementById('realisations-dots');
+    if (totalPages <= 1) {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        dotsContainer.style.display = 'none';
+    } else {
+        prevBtn.style.display = '';
+        nextBtn.style.display = '';
+        dotsContainer.style.display = '';
+    }
+}
+
+function updateCurrentCompanyInfo() {
+    // Récupérer la première réalisation de la page actuelle
+    const start = realisationsPage * ITEMS_PER_PAGE;
+    const firstItem = allRealisations[start];
+    
+    if (!firstItem || !firstItem.company) {
+        // Fallback si pas de company
+        document.getElementById('company-logo-img').src = '';
+        document.getElementById('company-name').textContent = 'Entreprise';
+        document.getElementById('company-sector').textContent = '';
+        document.getElementById('company-location').textContent = '';
+        document.getElementById('company-description').textContent = '';
+        return;
+    }
+    
+    const company = firstItem.company;
+    
+    // Mettre à jour le logo
+    const logoImg = document.getElementById('company-logo-img');
+    if (company.photo_url) {
+        logoImg.src = getImageUrl(company.photo_url);
+        logoImg.alt = company.name;
+    } else {
+        logoImg.src = '';
+    }
+    
+    // Mettre à jour les infos
+    document.getElementById('company-name').textContent = company.name || 'Entreprise';
+    document.getElementById('company-sector').textContent = company.sector || '';
+    document.getElementById('company-location').textContent = company.location ? `📍 ${company.location}` : '';
+    document.getElementById('company-description').innerHTML = company.description_html || '';
+}
+
+function renderProjects(projects) {
+    if (!projects || !projects.length) return;
+
+    // Trier les projets par année (le plus récent en premier)
+    allProjects = [...projects].sort((a, b) => {
+        const yearA = parseInt(a.year) || 0;
+        const yearB = parseInt(b.year) || 0;
+        return yearB - yearA;
+    });
+    projectsPage = 0;
+    renderProjectsPage();
+    initProjectsPagination();
+}
+
+function renderProjectsPage() {
+    const container = document.getElementById('projects-grid');
+    container.innerHTML = '';
+
+    const typeColors = {
+        'Application Web': '#000DFF',
+        'Application Mobile': '#6B73FF',
+        'Script & Automatisation': '#3b44d1',
+        'Base de données': '#8b92ff',
+    };
+
+    const start = projectsPage * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    const pageItems = allProjects.slice(start, end);
+
+    pageItems.forEach(projet => {
+        const color = typeColors[projet.type] || '#6B73FF';
+
+        const projectHtml = `
+    <a href="/projet/${projet.id}" class="project-card-link">
+        <div class="project-card">
+            <div class="project-image" style="background: linear-gradient(135deg, ${color}15, ${color}05);">
+                <div class="project-decoration-1" style="background: ${color};"></div>
+                <div class="project-decoration-2" style="background: ${color};"></div>
+
+                ${projet.company?.photo_url ? `
+                    <img src="${getImageUrl(projet.company.photo_url)}" 
+                         alt="${projet.company?.name || ''}" 
+                         class="project-image-logo"
+                         loading="lazy"
+                         onerror="this.style.display='none'; this.closest('.project-image').querySelector('.project-icon').style.display='flex';" />
+                    <div class="project-icon" style="background: ${color}; box-shadow: 0 8px 24px ${color}40; display: none;">
+                ` : `
+                    <div class="project-icon" style="background: ${color}; box-shadow: 0 8px 24px ${color}40;">
+                `}
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                            <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3m8 0h3a2 2 0 002-2v-3" stroke="white" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                    </div>
+
+                <span class="project-year" style="color: ${color};">${projet.year}</span>
+            </div>
+            <div class="project-content">
+                <span class="project-type" style="color: ${color}; background: ${color}12; border: 1px solid ${color}25;">${projet.type}</span>
+                <h3 class="project-title">${projet.title}</h3>
+                <p class="project-description">${projet.description_inline || ''}</p>
+                ${projet.tags && projet.tags.length ? `
+                    <div class="project-tags">
+                        ${projet.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
+                    </div>
+                ` : ''}
+            </div>
+            <span class="card-arrow">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </span>
+        </div>
+    </a>
+`;
+
+        container.innerHTML += projectHtml;
+    });
+    
+    updateProjectsDots();
+    updateProjectsArrows();
+}
+
+function initProjectsPagination() {
+    const prevBtn = document.getElementById('projects-prev');
+    const nextBtn = document.getElementById('projects-next');
+    const dotsContainer = document.getElementById('projects-dots');
+    
+    const totalPages = Math.ceil(allProjects.length / ITEMS_PER_PAGE);
+    
+    // Créer les dots
+    dotsContainer.innerHTML = '';
+    for (let i = 0; i < totalPages; i++) {
+        const dot = document.createElement('button');
+        dot.className = `pagination-dot ${i === 0 ? 'active' : ''}`;
+        dot.setAttribute('aria-label', `Page ${i + 1}`);
+        dot.addEventListener('click', () => {
+            projectsPage = i;
+            renderProjectsPage();
+        });
+        dotsContainer.appendChild(dot);
+    }
+    
+    // Event listeners pour les flèches
+    prevBtn.onclick = () => {
+        if (projectsPage > 0) {
+            projectsPage--;
+            renderProjectsPage();
+        }
+    };
+    
+    nextBtn.onclick = () => {
+        const totalPages = Math.ceil(allProjects.length / ITEMS_PER_PAGE);
+        if (projectsPage < totalPages - 1) {
+            projectsPage++;
+            renderProjectsPage();
+        }
+    };
+    
+    updateProjectsArrows();
+}
+
+function updateProjectsDots() {
+    const dots = document.querySelectorAll('#projects-dots .pagination-dot');
+    dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === projectsPage);
+    });
+}
+
+function updateProjectsArrows() {
+    const prevBtn = document.getElementById('projects-prev');
+    const nextBtn = document.getElementById('projects-next');
+    const totalPages = Math.ceil(allProjects.length / ITEMS_PER_PAGE);
+    
+    prevBtn.disabled = projectsPage === 0;
+    nextBtn.disabled = projectsPage >= totalPages - 1;
+    
+    // Masquer si une seule page
+    const dotsContainer = document.getElementById('projects-dots');
+    if (totalPages <= 1) {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        dotsContainer.style.display = 'none';
+    } else {
+        prevBtn.style.display = '';
+        nextBtn.style.display = '';
+        dotsContainer.style.display = '';
+    }
+}
+
+// ========================================
+// Navigation
+// ========================================
+
+function initNavbar() {
+    const navbar = document.getElementById('navbar');
+    const hamburger = document.getElementById('hamburger');
+    const mobileMenu = document.getElementById('mobile-menu');
+
+    // Gestion du scroll
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 40) {
+            navbar.classList.add('scrolled');
+        } else {
+            navbar.classList.remove('scrolled');
+        }
+    });
+
+    // Gestion du menu mobile
+    hamburger.addEventListener('click', () => {
+        mobileMenu.classList.toggle('hidden');
+    });
+
+    // Fermer le menu mobile au clic sur un lien
+    document.querySelectorAll('.nav-mobile-link').forEach(link => {
+        link.addEventListener('click', () => {
+            mobileMenu.classList.add('hidden');
+        });
+    });
+}
+
+// ========================================
+// Initialisation
+// ========================================
+
+async function renderAllSections(data) {
+    if (!data) return false;
+    
+    renderPortfolio(data);
+    renderStages(data.stages);
+    renderRealisations(data);
+    renderPersonalProjects(data.personalProjects);
+    // renderProjects n'est plus appelé - fusionné avec renderRealisations
+    
+    // Charger les formations (peut être dans /all ou séparément)
+    if (data.formations) {
+        renderFormations(data.formations);
+    } else {
+        // Essayer le cache d'abord
+        const cachedFormations = getCachedItem(FORMATIONS_CACHE_KEY);
+        if (cachedFormations) {
+            renderFormations(cachedFormations);
+        } else {
+            try {
+                const response = await fetchAPI('/formations');
+                const formations = response?.data || response;
+                setCachedItem(FORMATIONS_CACHE_KEY, formations, CACHE_DURATION);
+                renderFormations(formations);
+            } catch (error) {
+                console.warn('Erreur lors du chargement des formations:', error);
+            }
+        }
+    }
+    
+    // Charger les messages (cache court car changent souvent)
+    const cachedMessages = getCachedItem(MESSAGES_CACHE_KEY);
+    if (cachedMessages) {
+        renderMessages(cachedMessages);
+        // Rafraîchir en arrière-plan quand même
+        refreshMessagesInBackground();
+    } else {
+        try {
+            const response = await fetchAPI('/messages');
+            const messages = response?.data || response;
+            setCachedItem(MESSAGES_CACHE_KEY, messages, MESSAGES_CACHE_DURATION);
+            renderMessages(messages);
+        } catch (error) {
+            console.warn('Erreur lors du chargement des messages:', error);
+        }
+    }
+    
+    // Animer les nouveaux éléments rendus
+    setTimeout(refreshScrollAnimations, 50);
+
+    return true;
+}
+
+// Rafraîchir les messages en arrière-plan
+async function refreshMessagesInBackground() {
+    try {
+        const response = await fetchAPI('/messages');
+        const messages = response?.data || response;
+        const oldMessages = getCachedItem(MESSAGES_CACHE_KEY);
+        
+        if (JSON.stringify(messages) !== JSON.stringify(oldMessages)) {
+            console.log('Nouveaux messages détectés, mise à jour...');
+            setCachedItem(MESSAGES_CACHE_KEY, messages, MESSAGES_CACHE_DURATION);
+            renderMessages(messages);
+        }
+    } catch (error) {
+        // Silencieux en arrière-plan
+    }
+}
+
+// ========================================
+// Messages Carousel
+// ========================================
+
+function renderMessages(messages) {
+    const section = document.getElementById('messages-section');
+    const carousel = document.getElementById('messages-carousel');
+    const nav = document.getElementById('messages-nav');
+    
+    if (!messages || !messages.length) {
+        section.classList.add('hidden');
+        return;
+    }
+    
+    // Filtrer les messages actifs (l'API peut déjà le faire, mais double vérification)
+    allMessages = messages.filter(msg => msg.is_active);
+    
+    if (!allMessages.length) {
+        section.classList.add('hidden');
+        return;
+    }
+    
+    section.classList.remove('hidden');
+    carousel.innerHTML = '';
+    
+    // Icône par défaut selon le type si pas d'icône spécifiée
+    const defaultIcons = {
+        'urgent': 'exclamation-triangle-fill',
+        'warning': 'exclamation-circle-fill',
+        'success': 'check-circle-fill',
+        'info': 'info-circle-fill'
+    };
+    
+    // Types avec couleurs
+    const typeClasses = {
+        'urgent': 'message-urgent',
+        'warning': 'message-warning',
+        'success': 'message-success',
+        'info': 'message-info'
+    };
+    
+    allMessages.forEach((msg, index) => {
+        const typeClass = typeClasses[msg.type] || 'message-info';
+        // Utiliser l'icône Bootstrap spécifiée ou l'icône par défaut du type
+        const iconName = msg.icon || defaultIcons[msg.type] || 'info-circle';
+        
+        const messageHtml = `
+            <div class="message-slide ${index === 0 ? 'active' : ''}" data-index="${index}">
+                <div class="message-card ${typeClass}">
+                    <div class="message-icon"><i class="bi bi-${iconName}"></i></div>
+                    <div class="message-content">
+                        ${msg.title ? `<h4 class="message-title">${msg.title}</h4>` : ''}
+                        <p class="message-text">${msg.message_html || ''}</p>
+                        ${msg.link_url ? `
+                            <a href="${msg.link_url}" class="message-link" target="_blank" rel="noopener">
+                                ${msg.link_text || 'En savoir plus'}
+                                <i class="bi bi-arrow-right"></i>
+                            </a>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        carousel.innerHTML += messageHtml;
+    });
+    
+    // Navigation
+    if (allMessages.length > 1) {
+        nav.classList.remove('hidden');
+        initMessagesCarousel();
+    } else {
+        nav.classList.add('hidden');
+    }
+}
+
+function initMessagesCarousel() {
+    const prevBtn = document.getElementById('messages-prev');
+    const nextBtn = document.getElementById('messages-next');
+    const dotsContainer = document.getElementById('messages-dots');
+    
+    // Créer les dots
+    dotsContainer.innerHTML = '';
+    allMessages.forEach((_, index) => {
+        const dot = document.createElement('button');
+        dot.className = `message-dot ${index === 0 ? 'active' : ''}`;
+        dot.setAttribute('aria-label', `Message ${index + 1}`);
+        dot.addEventListener('click', () => goToMessage(index));
+        dotsContainer.appendChild(dot);
+    });
+    
+    // Event listeners
+    prevBtn.onclick = () => navigateMessages(-1);
+    nextBtn.onclick = () => navigateMessages(1);
+    
+    // Auto-slide toutes les 5 secondes
+    startMessagesAutoSlide();
+    
+    // Pause on hover
+    const carousel = document.getElementById('messages-carousel');
+    carousel.addEventListener('mouseenter', stopMessagesAutoSlide);
+    carousel.addEventListener('mouseleave', startMessagesAutoSlide);
+}
+
+function navigateMessages(direction) {
+    messagesIndex += direction;
+    
+    if (messagesIndex < 0) messagesIndex = allMessages.length - 1;
+    if (messagesIndex >= allMessages.length) messagesIndex = 0;
+    
+    updateMessagesSlide();
+}
+
+function goToMessage(index) {
+    messagesIndex = index;
+    updateMessagesSlide();
+}
+
+function updateMessagesSlide() {
+    const slides = document.querySelectorAll('.message-slide');
+    const dots = document.querySelectorAll('.message-dot');
+    
+    slides.forEach((slide, i) => {
+        slide.classList.toggle('active', i === messagesIndex);
+    });
+    
+    dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === messagesIndex);
+    });
+}
+
+function startMessagesAutoSlide() {
+    stopMessagesAutoSlide();
+    if (allMessages.length > 1) {
+        messagesAutoSlide = setInterval(() => navigateMessages(1), 5000);
+    }
+}
+
+function stopMessagesAutoSlide() {
+    if (messagesAutoSlide) {
+        clearInterval(messagesAutoSlide);
+        messagesAutoSlide = null;
+    }
+}
+
+function hideLoadingOverlay() {
+    stopLoadingAnimation();
+    setTimeout(() => {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        loadingOverlay.classList.add('fade-out');
+        setTimeout(() => {
+            loadingOverlay.style.display = 'none';
+        }, 500);
+    }, 300);
+}
+
+async function init() {
+    initNavbar();
+    // Données rendues côté serveur : pas de cache local ni de réveil de serveur nécessaires
+    const data = window.PORTFOLIO_DATA || null;
+    portfolioData = data;
+    updateProgress(100);
+    if (data) {
+        await renderAllSections(data);
+    } else {
+        showNotification('Impossible de charger les données', 'error', 8000);
+    }
+    hideLoadingOverlay();
+}
+
+// Lancer l'initialisation au chargement de la page
+document.addEventListener('DOMContentLoaded', init);
+
+// ----------------------------------------
+// Enable clickable contact cards (robust + accessible)
+// ----------------------------------------
+function enableContactCardsInteractions() {
+    const cards = document.querySelectorAll('.contact-card');
+    if (!cards || !cards.length) return;
+
+    cards.forEach((card, idx) => {
+        // Make focusable and keyboard-usable
+        card.style.cursor = 'pointer';
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('role', 'button');
+
+        // Prevent clicks on internal anchors from bubbling to the card
+        card.querySelectorAll('a').forEach(a => a.addEventListener('click', e => e.stopPropagation()));
+
+        // Determine action per card position (matches current HTML ordering)
+        let handler = null;
+        if (idx === 0) {
+            const emailEl = document.getElementById('contact-email');
+            if (emailEl) handler = () => { const em = emailEl.textContent.trim(); if (em) window.location.href = `mailto:${em}`; };
+        } else if (idx === 1) {
+            const ln = document.getElementById('contact-linkedin');
+            if (ln) handler = () => { const href = ln.href; if (href && href !== '#') window.open(href, '_blank'); };
+        } else if (idx === 2) {
+            const gh = document.getElementById('contact-github');
+            if (gh) handler = () => { const href = gh.href; if (href && href !== '#') window.open(href, '_blank'); };
+        } else {
+            // Fallback: open first internal link
+            const a = card.querySelector('a');
+            if (a && a.href) handler = () => { window.open(a.href, '_blank'); };
+        }
+
+        if (handler) {
+            card.onclick = handler;
+            card.onkeydown = (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
+            };
+        }
+    });
+}
+
+// Run once initially and re-run when contact cards change
+document.addEventListener('DOMContentLoaded', () => {
+    enableContactCardsInteractions();
+    const container = document.querySelector('.contact-cards');
+    if (container) {
+        const mo = new MutationObserver(() => enableContactCardsInteractions());
+        mo.observe(container, { childList: true, subtree: true });
+    }
+});
+
+// ----------------------------------------
+// Contact form submission
+// ----------------------------------------
+async function handleContactFormSubmit(e) {
+    e.preventDefault();
+
+    const nameEl    = document.getElementById('cf-name');
+    const emailEl   = document.getElementById('cf-email');
+    const messageEl = document.getElementById('cf-message');
+    const btn       = document.getElementById('cf-submit');
+    const feedback  = document.getElementById('cf-feedback');
+
+    const name    = nameEl.value.trim();
+    const email   = emailEl.value.trim();
+    const message = messageEl.value.trim();
+
+    if (!name || !email || !message) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Envoi en cours…';
+    if (feedback) { feedback.textContent = ''; feedback.className = 'cf-feedback'; }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/contact`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ name, email, message }),
+        });
+        // Réponse inattendue (page d'erreur HTML…) : message clair plutôt qu'une erreur JSON
+        const json = await res.json().catch(() => ({ success: false, error: "Le message n'a pas pu être envoyé. Réessayez plus tard ou écrivez-moi directement par email." }));
+        if (!res.ok || !json.success) throw new Error(json.error || json.message || 'Erreur envoi');
+
+        if (feedback) {
+            feedback.textContent = 'Message envoyé avec succès !';
+            feedback.className = 'cf-feedback success';
+        }
+        nameEl.value = '';
+        emailEl.value = '';
+        messageEl.value = '';
+    } catch (err) {
+        if (feedback) {
+            feedback.textContent = err.message || 'Une erreur est survenue.';
+            feedback.className = 'cf-feedback error';
+        }
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Envoyer';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('contact-form');
+    if (form) form.addEventListener('submit', handleContactFormSubmit);
+});
+
+// ----------------------------------------
+// Scroll animations (Intersection Observer)
+// ----------------------------------------
+function initScrollAnimations() {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('anim-in');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+    // Éléments à animer au scroll
+    const selectors = [
+        '.section-label',
+        'section h2',
+        '.stat-item',
+        '.timeline-item',
+        '.realisation-card',
+        '.project-card',
+        '.competence-bloc',
+        '.contact-card',
+        '.contact-form',
+        '#cv-section .cv-section-inner > *',
+        '.profil-text > *',
+        '.profil-photo-wrap',
+    ];
+
+    document.querySelectorAll(selectors.join(',')).forEach((el, i) => {
+        el.classList.add('anim-ready');
+        // décalage léger par groupe de 4
+        el.style.transitionDelay = `${(i % 4) * 60}ms`;
+        observer.observe(el);
+    });
+}
+
+// Re-appelé après chaque render pour animer les nouveaux éléments
+function refreshScrollAnimations() {
+    initScrollAnimations();
+}
+
+document.addEventListener('DOMContentLoaded', initScrollAnimations);
+
+// ----------------------------------------
+// Projets personnels (section sous « Mes réalisations »)
+// ----------------------------------------
+function renderPersonalProjects(projects) {
+    const section = document.getElementById('personal-projects');
+    const container = document.getElementById('personal-projects-grid');
+    if (!section || !container) return;
+
+    if (!projects || !projects.length) {
+        section.classList.add('hidden');
+        return;
+    }
+    section.classList.remove('hidden');
+
+    // Projets mis en avant d'abord, puis l'ordre défini dans l'admin
+    const sorted = [...projects].sort((a, b) => (b.is_featured === true) - (a.is_featured === true) || (a.order || 0) - (b.order || 0));
+    const colors = ['#EC4899', '#14B8A6', '#F59E0B', '#8B5CF6', '#0EA5E9', '#84CC16'];
+
+    container.innerHTML = sorted.map((p, i) => {
+        const color = colors[i % colors.length];
+        const cover = p.images && p.images.length ? getImageUrl(p.images[0]) : '';
+        return `
+            <a href="/projet-perso/${p.id}" class="realisation-card-link">
+                <div class="realisation-card">
+                    <div class="realisation-image" style="background: linear-gradient(135deg, ${color}15, ${color}05);">
+                        <div class="project-decoration-1" style="background: ${color};"></div>
+                        <div class="project-decoration-2" style="background: ${color};"></div>
+                        ${cover
+                            ? `<img src="${cover}" alt="${p.title}" class="personal-project-cover" loading="lazy" />`
+                            : `<div class="project-icon" style="background: ${color}; box-shadow: 0 8px 24px ${color}40;">
+                                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
+                               </div>`}
+                        ${p.is_featured ? `<div class="realisation-company-label" style="background: ${color};">★ Mis en avant</div>` : ''}
+                    </div>
+                    <div class="realisation-content">
+                        <span class="realisation-type" style="color: ${color}; background: ${color}12;">${p.category || 'Projet perso'}${p.year ? ' · ' + p.year : ''}</span>
+                        <h4 class="realisation-title">${p.title}</h4>
+                        <p class="realisation-description">${p.description_inline || ''}</p>
+                        ${p.tags && p.tags.length ? `<div class="realisation-tags">${p.tags.map(t => `<span class="tag">${t.tag}</span>`).join('')}</div>` : ''}
+                    </div>
+                    <span class="card-arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </span>
+                </div>
+            </a>`;
+    }).join('');
+}

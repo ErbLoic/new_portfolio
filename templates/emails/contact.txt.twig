@@ -1,0 +1,15 @@
+{% autoescape false %}
+Nouveau message depuis ton portfolio
+====================================
+
+De      : {{ senderName }} <{{ senderEmail }}>
+Reçu le : {{ sentAt|date('d/m/Y à H\\hi', 'Europe/Paris') }}
+
+{{ messageBody }}
+
+------------------------------------
+Pour répondre : clique sur « Répondre » dans ta messagerie
+ou écris à {{ senderEmail }}.
+
+Envoyé depuis {{ siteUrl }}
+{% endautoescape %}

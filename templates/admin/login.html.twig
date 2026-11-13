@@ -1,0 +1,38 @@
+{% extends 'admin/base.html.twig' %}
+{% block title %}Connexion{% endblock %}
+{% block body %}
+<div id="loginPage" class="page active">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-card__brand">
+        <div class="brand-icon"><i class="bi bi-code-square"></i></div>
+        <h1>Portfolio Admin</h1>
+        <p>Connectez-vous pour gérer votre portfolio</p>
+      </div>
+      <form method="post" action="{{ path('admin_login') }}">
+        <div class="field-group">
+          <label class="field-label" for="username">Adresse email</label>
+          <div class="field-input-wrap">
+            <i class="bi bi-envelope field-icon"></i>
+            <input class="field-input" type="email" id="username" name="_username" value="{{ last_username }}" autocomplete="email" required autofocus>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="password">Mot de passe</label>
+          <div class="field-input-wrap">
+            <i class="bi bi-lock field-icon"></i>
+            <input class="field-input field-input--pwd" type="password" id="password" name="_password" autocomplete="current-password" required>
+            <button type="button" class="pwd-toggle" onclick="var i=document.getElementById('password');i.type=i.type==='password'?'text':'password';this.querySelector('i').className=i.type==='password'?'bi bi-eye':'bi bi-eye-slash'"><i class="bi bi-eye"></i></button>
+          </div>
+        </div>
+        <label class="check-inline login-remember"><input type="checkbox" name="_remember_me"> Rester connecté 7 jours</label>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+        {% if error %}
+          <div class="login-alert login-alert--show">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+        {% endif %}
+        <button type="submit" class="btn-login"><span>Se connecter</span><i class="bi bi-arrow-right"></i></button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

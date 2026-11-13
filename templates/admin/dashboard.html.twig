@@ -1,0 +1,47 @@
+{% extends 'admin/base.html.twig' %}
+{% block title %}Tableau de bord{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-head__title">Bonjour{{ portfolio ? ' ' ~ portfolio.firstName }} 👋</h1>
+    <p class="page-head__sub">Vue d'ensemble de votre portfolio. Cliquez sur une carte pour gérer la section.</p>
+  </div>
+  <a class="btn btn--outline" href="{{ path('home') }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Voir le site</a>
+</div>
+
+{% set colors = ['blue', 'orange', 'teal', 'red', 'indigo', 'purple', 'green', 'blue'] %}
+<div class="stats-grid">
+  {% for slug, s in admin_sections() %}
+    <a class="stat-card" data-color="{{ colors[loop.index0] }}" href="{{ path('admin_list', {section: slug}) }}">
+      <div class="stat-card__ico"><i class="bi {{ s.icon }}"></i></div>
+      <div><div class="stat-card__val">{{ counts[slug] }}</div><div class="stat-card__lbl">{{ s.label }}</div></div>
+    </a>
+  {% endfor %}
+</div>
+
+<div class="two-col-grid">
+  {% for bloc in [
+      {title: 'Derniers projets', icon: 'bi-kanban', items: recentProjects, section: 'projets'},
+      {title: 'Dernières réalisations', icon: 'bi-palette', items: recentRealisations, section: 'realisations'}
+  ] %}
+    <div class="card">
+      <div class="card__head"><h2><i class="bi {{ bloc.icon }}"></i> {{ bloc.title }}</h2></div>
+      <div class="card__body card__body--flush">
+        <div class="entity-list">
+          {% for p in bloc.items %}
+            <a class="entity-row" href="{{ path('admin_edit', {section: bloc.section, id: p.id}) }}">
+              <div class="entity-row__body">
+                <div class="entity-row__title">{{ p.title }}</div>
+                <div class="entity-row__meta">{{ p.type }}{{ p.company ? ' · ' ~ p.company.name }}</div>
+              </div>
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          {% else %}
+            <div class="empty-state-small">Rien pour l'instant.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

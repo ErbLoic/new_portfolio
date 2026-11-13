@@ -1,0 +1,115 @@
+{#
+  Email reçu quand un visiteur utilise le formulaire de contact.
+  HTML « email-safe » : tableaux + styles en ligne (Gmail, Outlook, Apple Mail, mobile).
+  Variables : senderName, senderEmail, messageBody, sentAt, siteUrl, ownerFirstName
+#}
+{% set initial = senderName|trim|first|upper %}
+{% set replySubject = 'Re: votre message sur mon portfolio' %}
+<!DOCTYPE html>
+<html lang="fr" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="color-scheme" content="light only">
+  <title>Nouveau message de {{ senderName }}</title>
+  <style>
+    @media (max-width: 620px) {
+      .container { width: 100% !important; }
+      .px { padding-left: 22px !important; padding-right: 22px !important; }
+      .btn a { display: block !important; }
+    }
+    a { color: #000DFF; }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#eef0fb;-webkit-text-size-adjust:100%;">
+  {# Texte d'aperçu affiché dans la liste des mails #}
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+    {{ messageBody|length > 110 ? messageBody|slice(0, 107) ~ '…' : messageBody }}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#eef0fb;">
+    <tr>
+      <td align="center" style="padding:32px 12px;">
+        {# Largeur fluide : 600 px max, s'adapte aux téléphones #}
+        <!--[if mso]><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0"><tr><td><![endif]-->
+        <table role="presentation" class="container" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(30,27,75,0.10);">
+
+          {# Bandeau #}
+          <tr>
+            <td class="px" style="background:#000DFF;background-image:linear-gradient(135deg,#000DFF 0%,#4f46e5 55%,#7c3aed 100%);padding:34px 40px 30px;">
+              <p style="margin:0 0 10px;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#c7cbff;">
+                ✉️&nbsp; Portfolio · formulaire de contact
+              </p>
+              <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.25;font-weight:normal;color:#ffffff;">
+                {{ ownerFirstName ? 'Bonjour ' ~ ownerFirstName ~ ', ' : '' }}<i>nouveau message&nbsp;!</i>
+              </h1>
+            </td>
+          </tr>
+
+          {# Expéditeur #}
+          <tr>
+            <td class="px" style="padding:28px 40px 8px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td valign="middle" style="width:52px;">
+                    <div style="width:52px;height:52px;border-radius:50%;background:#eef0ff;color:#000DFF;font-family:Georgia,serif;font-size:24px;line-height:52px;text-align:center;font-weight:bold;">{{ initial ?: '?' }}</div>
+                  </td>
+                  <td valign="middle" style="padding-left:14px;font-family:Arial,Helvetica,sans-serif;">
+                    <p style="margin:0;font-size:17px;font-weight:bold;color:#1e1b4b;">{{ senderName }}</p>
+                    <p style="margin:3px 0 0;font-size:14px;"><a href="mailto:{{ senderEmail }}" style="color:#000DFF;text-decoration:none;">{{ senderEmail }}</a></p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          {# Message #}
+          <tr>
+            <td class="px" style="padding:18px 40px 6px;">
+              <p style="margin:0 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#8b8fb8;font-weight:bold;">Message</p>
+              <div style="background:#f6f7ff;border-left:4px solid #000DFF;border-radius:0 12px 12px 0;padding:18px 20px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.65;color:#2d2a55;">
+                {{ messageBody|nl2br }}
+              </div>
+            </td>
+          </tr>
+
+          {# Bouton répondre #}
+          <tr>
+            <td class="px btn" align="left" style="padding:24px 40px 10px;">
+              <a href="mailto:{{ senderEmail }}?subject={{ replySubject|url_encode }}"
+                 style="display:inline-block;background:#000DFF;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;text-decoration:none;padding:13px 26px;border-radius:999px;text-align:center;">
+                ↩&nbsp; Répondre à {{ senderName|split(' ')|first }}
+              </a>
+              <p style="margin:12px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#8b8fb8;">
+                Astuce : tu peux aussi cliquer simplement sur « Répondre » dans ta messagerie.
+              </p>
+            </td>
+          </tr>
+
+          {# Détails #}
+          <tr>
+            <td class="px" style="padding:20px 40px 30px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-top:1px solid #e7e8f5;">
+                <tr>
+                  <td style="padding-top:16px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#8b8fb8;line-height:1.6;">
+                    🕒&nbsp; Reçu le {{ sentAt|date('d/m/Y à H\\hi', 'Europe/Paris') }}<br>
+                    🌐&nbsp; Envoyé depuis <a href="{{ siteUrl }}" style="color:#8b8fb8;">{{ siteUrl|replace({'https://': '', 'http://': ''})|trim('/') }}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        <!--[if mso]></td></tr></table><![endif]-->
+
+        {# Pied #}
+        <p style="margin:18px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#9a9dc4;line-height:1.6;max-width:520px;">
+          Ce message a été envoyé via le formulaire de contact de ton portfolio.<br>
+          Pense à ne conserver ces données que le temps de l'échange (voir tes mentions légales).
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

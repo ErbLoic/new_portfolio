@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {% set fullname = data.portfolio ? data.portfolio.first_name ~ ' ' ~ data.portfolio.last_name : 'Portfolio' %}
+    {% include 'site/_seo.html.twig' with {
+      seo_title: fullname ~ (data.portfolio ? ' — ' ~ data.portfolio.job_title : ''),
+      seo_description: data.portfolio.bio ?? '',
+      seo_image: data.portfolio.photo_url ?? null,
+      seo_type: 'profile',
+      person: data.portfolio
+    } %}
+    <link rel="stylesheet" href="{{ asset('site/styles.css') }}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,600&family=DM+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    />
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav id="navbar">
+      <div class="nav-container">
+        <a href="#hero" id="logo">
+          {{ data.portfolio.first_name ?? 'Portfolio' }} <span class="logo-italic">{{ data.portfolio.last_name ?? '' }}</span>
+        </a>
+        <ul class="nav-links">
+          <li>
+            <a href="#hero" class="nav-link"
+              >Accueil<span class="nav-underline"></span
+            ></a>
+          </li>
+          <li>
+            <a href="#profil" class="nav-link"
+              >Profil<span class="nav-underline"></span
+            ></a>
+          </li>
+          <li>
+            <a href="#realisations" class="nav-link"
+              >Projets<span class="nav-underline"></span
+            ></a>
+          </li>
+          <li><a href="#contact" class="nav-cta">Me contacter</a></li>
+        </ul>
+        <button id="hamburger" aria-label="Toggle menu">
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+        </button>
+      </div>
+      <div id="mobile-menu" class="hidden">
+        <a href="#hero" class="nav-mobile-link">Accueil</a>
+        <a href="#profil" class="nav-mobile-link">Profil</a>
+        <a href="#realisations" class="nav-mobile-link">Projets</a>
+        <a href="#contact" class="nav-mobile-link">Me contacter</a>
+      </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="hero">
+      <div class="hero-bg-image"></div>
+      <div class="hero-circle hero-circle-1"></div>
+      <div class="hero-circle hero-circle-2"></div>
+      <svg class="hero-grid" width="100%" height="100%">
+        <defs>
+          <pattern
+            id="grid"
+            width="60"
+            height="60"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M 60 0 L 0 0 0 60"
+              fill="none"
+              stroke="white"
+              stroke-width="0.5"
+            />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+      </svg>
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="pulse-dot"></span>
+          <span id="hero-job-title">{{ data.portfolio.job_title ?? '' }}</span>
+        </div>
+        <h1 id="hero-name">
+          <span id="first-name">{{ data.portfolio.first_name ?? 'Prénom' }}</span>
+          <span id="last-name" class="italic">{{ data.portfolio.last_name ?? 'Nom' }}</span>
+        </h1>
+        <p class="hero-subtitle">
+          Passionné par le développement et les systèmes d'information
+        </p>
+        <div class="hero-buttons">
+          <a href="#profil" class="btn-outline">Découvrir</a>
+          <a href="#contact" class="btn-primary-white">Me contacter</a>
+          <a
+            id="hero-cv-btn"
+            href="#"
+            download
+            class="btn-cv"
+            style="display: none"
+            target="_blank"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            CV
+          </a>
+        </div>
+      </div>
+      <div class="scroll-indicator">
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="white"
+          stroke-width="2"
+        >
+          <path d="M12 5v14M5 12l7 7 7-7" />
+        </svg>
+      </div>
+    </section>
+
+    <!-- Messages Importants Section -->
+    <section id="messages-section" class="messages-section hidden">
+      <div class="messages-container">
+        <div class="messages-carousel" id="messages-carousel">
+          <!-- Messages will be loaded here -->
+        </div>
+        <div class="messages-nav" id="messages-nav">
+          <button
+            class="messages-nav-btn prev"
+            id="messages-prev"
+            aria-label="Message précédent"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <div class="messages-dots" id="messages-dots"></div>
+          <button
+            class="messages-nav-btn next"
+            id="messages-next"
+            aria-label="Message suivant"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Profil Section -->
+    <section id="profil">
+      <div class="section-container">
+        <div class="profil-grid">
+          <div class="profil-photo-container">
+            <div class="photo-ring"></div>
+            <div class="photo-inner-ring"></div>
+            <div class="photo-wrapper">
+              <img id="profil-photo" src="" alt="Photo de profil" />
+              <div class="photo-overlay"></div>
+            </div>
+            <div class="promo-badge">
+              <p class="promo-label">Actuellement</p>
+              <p id="promo-years" class="promo-value">{{ data.portfolio.job_title ?? '' }}</p>
+            </div>
+          </div>
+          <div class="profil-text">
+            <div class="section-label">
+              <div class="label-line"></div>
+              <span>À propos</span>
+            </div>
+            <h2>
+              Passionné
+              <span class="italic accent">par le développement</span>
+            </h2>
+            <div id="profil-bio" class="profil-description md">{{ (data.portfolio.bio_html ?? '')|raw }}</div>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <p id="stat-techs" class="stat-number color-1">0</p>
+                <p class="stat-label">Technologies</p>
+              </div>
+              <div class="stat-item">
+                <p id="stat-projects" class="stat-number color-3">0</p>
+                <p class="stat-label">Projets</p>
+              </div>
+              <div class="stat-item">
+                <p id="stat-stages" class="stat-number color-4">0</p>
+                <p class="stat-label">Expériences</p>
+              </div>
+            </div>
+            <a href="#realisations" class="btn-primary"
+              >Découvrir mes réalisations</a
+            >
+          </div>
+        </div>
+
+        <!-- Mon Parcours -->
+        <div class="formations-section">
+          <h3>Mon <span class="italic accent">parcours</span></h3>
+          <div id="formations-timeline" class="timeline"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Realisations Section -->
+    <section id="realisations">
+      <div class="section-container">
+        <div class="section-header center">
+          <div class="section-label center">
+            <div class="label-line"></div>
+            <span>Réalisations</span>
+            <div class="label-line"></div>
+          </div>
+          <h2>Mes <span class="italic accent">expériences</span></h2>
+        </div>
+
+        <!-- Expériences professionnelles -->
+        <div class="stages-section">
+          <h3>Expériences <span class="italic accent">professionnelles</span></h3>
+          <div id="stages-timeline" class="timeline"></div>
+        </div>
+
+        <!-- Réalisations et Projets Section Fusionnée -->
+        <div class="section-header-flex">
+          <div>
+            <div class="section-label">
+              <div class="label-line"></div>
+              <span>Portfolio</span>
+            </div>
+            <h2>Mes <span class="italic accent">réalisations</span></h2>
+          </div>
+          <p class="section-description">
+            Projets réalisés en formation, en stage et en autonomie, couvrant
+            de nombreuses technologies.
+          </p>
+        </div>
+
+        <div class="realisation-projects-wrapper">
+          <div class="paginated-container">
+            <button
+              class="pagination-arrow prev"
+              id="realisations-prev"
+              aria-label="Précédent"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <div
+              id="realisations-by-company"
+              class="paginated-grid items-2-per-page"
+            ></div>
+            <button
+              class="pagination-arrow next"
+              id="realisations-next"
+              aria-label="Suivant"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
+          </div>
+          <div class="pagination-dots" id="realisations-dots"></div>
+        </div>
+
+        <!-- Projets personnels (réalisés en autonomie) -->
+        <div id="personal-projects" class="personal-projects hidden">
+          <h3>Projets <span class="italic accent">personnels</span></h3>
+          <p class="section-description">
+            Projets menés en autonomie, en dehors de la formation et des stages.
+          </p>
+          <div id="personal-projects-grid" class="personal-projects-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+
+    <!-- Contact Section -->
+    <section id="contact">
+      <div class="contact-decoration-1"></div>
+      <div class="contact-decoration-2"></div>
+      <svg class="contact-grid" width="100%" height="100%">
+        <defs>
+          <pattern
+            id="cgrid"
+            width="50"
+            height="50"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M 50 0 L 0 0 0 50"
+              fill="none"
+              stroke="white"
+              stroke-width="0.8"
+            />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#cgrid)" />
+      </svg>
+      <div class="contact-content">
+        <div class="section-label center light">
+          <div class="label-line light"></div>
+          <span>Contact</span>
+          <div class="label-line light"></div>
+        </div>
+        <h2>Entrons en <span class="italic">contact</span></h2>
+        <div id="contact-message" class="contact-description md">{{ (data.portfolio.contact_message_html ?? '')|raw }}</div>
+        <div class="contact-cards">
+          <div class="contact-card">
+            <div class="contact-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                  stroke="white"
+                  stroke-width="1.5"
+                />
+                <polyline
+                  points="22,6 12,13 2,6"
+                  stroke="white"
+                  stroke-width="1.5"
+                />
+              </svg>
+            </div>
+            <p class="contact-label">Email</p>
+            <p id="contact-email" class="contact-value"></p>
+          </div>
+          <div class="contact-card">
+            <div class="contact-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6z"
+                  stroke="white"
+                  stroke-width="1.5"
+                />
+                <rect
+                  x="2"
+                  y="9"
+                  width="4"
+                  height="12"
+                  stroke="white"
+                  stroke-width="1.5"
+                />
+                <circle cx="4" cy="4" r="2" stroke="white" stroke-width="1.5" />
+              </svg>
+            </div>
+            <p class="contact-label">LinkedIn</p>
+            <a
+              id="contact-linkedin"
+              href="#"
+              target="_blank"
+              class="contact-value"
+              >Profil</a
+            >
+          </div>
+          <div class="contact-card">
+            <div class="contact-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"
+                  stroke="white"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </div>
+            <p class="contact-label">GitHub</p>
+            <a
+              id="contact-github"
+              href="#"
+              target="_blank"
+              class="contact-value"
+              >Profil</a
+            >
+          </div>
+        </div>
+        <form id="contact-form" class="contact-form" novalidate>
+          <div class="cf-row">
+            <div class="cf-field">
+              <label for="cf-name">Nom</label>
+              <input id="cf-name" name="name" type="text" autocomplete="name" maxlength="255" required placeholder="Votre nom" />
+            </div>
+            <div class="cf-field">
+              <label for="cf-email">Email</label>
+              <input id="cf-email" name="email" type="email" autocomplete="email" maxlength="255" required placeholder="vous@exemple.fr" />
+            </div>
+          </div>
+          <div class="cf-field">
+            <label for="cf-message">Message</label>
+            <textarea id="cf-message" name="message" rows="5" maxlength="5000" required placeholder="Votre message…"></textarea>
+          </div>
+          <p class="cf-privacy">
+            Vos nom, email et message servent uniquement à vous répondre. Ils me sont transmis par email,
+            ne sont pas enregistrés sur ce site et ne sont jamais revendus ni partagés.
+            <a href="{{ path('legal') }}#donnees">En savoir plus et exercer vos droits</a>.
+          </p>
+          <button id="cf-submit" type="submit" class="btn-white">Envoyer</button>
+          <p id="cf-feedback" class="cf-feedback" role="status" aria-live="polite"></p>
+        </form>
+        <a id="email-cta" href="mailto:" class="btn-white" style="display: none"
+          >Envoyer un email</a
+        >
+      </div>
+    </section>
+
+    <!-- CV Section -->
+    <section id="cv-section" style="display: none">
+      <div class="cv-section-inner">
+        <div class="section-label center">
+          <div class="label-line"></div>
+          <span>Mon CV</span>
+          <div class="label-line"></div>
+        </div>
+        <h2>Téléchargez mon <span class="italic">curriculum vitae</span></h2>
+        <p class="cv-description">
+          Retrouvez l'ensemble de mon parcours, mes compétences et mes
+          expériences en téléchargeant mon CV.
+        </p>
+        <a id="cv-download-btn" href="#" download class="btn-cv-section">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Télécharger mon CV
+        </a>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-container">
+        <p id="footer-name" class="footer-title">{{ fullname }}{{ data.portfolio ? ' — ' ~ data.portfolio.job_title }}</p>
+        <p id="footer-years" class="footer-copyright">© {{ 'now'|date('Y') }} · <a href="{{ path('legal') }}" class="footer-link">Mentions légales &amp; confidentialité</a></p>
+      </div>
+    </footer>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay">
+      <div class="loader-container">
+        <div class="loader-spinner">
+          <div class="spinner-ring"></div>
+          <div class="spinner-ring"></div>
+          <div class="spinner-ring"></div>
+          <div class="spinner-dot"></div>
+        </div>
+        <div class="loader-text">
+          <p id="loader-status" class="loader-status">
+            Connexion au serveur...
+          </p>
+          <p id="loader-tip" class="loader-tip">
+            Le serveur se réveille, cela peut prendre quelques secondes
+          </p>
+        </div>
+        <div class="loader-progress">
+          <div id="loader-progress-bar" class="loader-progress-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>window.PORTFOLIO_DATA = {{ data|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};</script>
+    <script src="{{ asset('site/app.js') }}"></script>
+    <script src="{{ asset('site/eggs.js') }}"></script>
+  </body>
+</html>

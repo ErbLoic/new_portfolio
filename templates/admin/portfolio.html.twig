@@ -1,0 +1,67 @@
+{% extends 'admin/base.html.twig' %}
+{% form_theme form 'admin/_form_theme.html.twig' %}
+{% block title %}Mon profil{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-head__title"><i class="bi bi-person-circle"></i> Mon profil</h1>
+    <p class="page-head__sub">Informations affichées en haut du site et dans la section contact.</p>
+  </div>
+  <a class="btn btn--outline" href="{{ path('home') }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Voir le site</a>
+</div>
+
+{{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+<div class="two-col-grid">
+  <div class="card">
+    <div class="card__head"><h2><i class="bi bi-person"></i> Identité</h2></div>
+    <div class="card__body">
+      <div class="form-grid-2">{{ form_row(form.firstName) }}{{ form_row(form.lastName) }}</div>
+      {{ form_row(form.jobTitle) }}
+      {{ form_row(form.bio) }}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card__head"><h2><i class="bi bi-image"></i> Photo &amp; CV</h2></div>
+    <div class="card__body">
+      <div class="file-block">
+        <div class="file-current">
+          {% if portfolio.photoUrl %}<img src="{{ portfolio.photoUrl }}" alt="Photo">{% else %}<span class="thumb-empty big"><i class="bi bi-person"></i></span>{% endif %}
+        </div>
+        <div class="file-fields">
+          {{ form_row(form.upload_photoUrl) }}
+          {% if form.remove_photoUrl is defined %}{{ form_row(form.remove_photoUrl) }}{% endif %}
+        </div>
+      </div>
+      <div class="file-block">
+        <div class="file-current">
+          {% if portfolio.cvUrl %}<a href="{{ portfolio.cvUrl }}" target="_blank" class="btn btn--sm btn--outline"><i class="bi bi-file-earmark-pdf"></i> CV actuel</a>{% else %}<span class="field-hint">Aucun CV</span>{% endif %}
+        </div>
+        <div class="file-fields">
+          {{ form_row(form.upload_cvUrl) }}
+          {% if form.remove_cvUrl is defined %}{{ form_row(form.remove_cvUrl) }}{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card__head"><h2><i class="bi bi-link-45deg"></i> Coordonnées &amp; réseaux</h2></div>
+    <div class="card__body">
+      {{ form_row(form.email) }}
+      <div class="form-grid-2">{{ form_row(form.phone) }}{{ form_row(form.location) }}</div>
+      {{ form_row(form.linkedinUrl) }}
+      {{ form_row(form.githubUrl) }}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card__head"><h2><i class="bi bi-chat-dots"></i> Message de contact</h2></div>
+    <div class="card__body">{{ form_row(form.contactMessage) }}</div>
+  </div>
+</div>
+<div class="form-actions sticky-actions">
+  <button type="submit" class="btn btn--primary btn--lg"><i class="bi bi-check-lg"></i> Enregistrer le profil</button>
+</div>
+{{ form_end(form) }}
+{% endblock %}

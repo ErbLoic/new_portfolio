@@ -1,0 +1,19 @@
+# Rien de secret ni de lourd dans le contexte de build Docker
+.git
+.gitignore
+.env.local
+.env.*.local
+.env.local.php
+vendor/
+var/
+node_modules/
+public/uploads/
+compose*.yaml
+Dockerfile
+.dockerignore
+.claude/
+.agents/
+sql/
+README.md
+.editorconfig
+.prettier*
