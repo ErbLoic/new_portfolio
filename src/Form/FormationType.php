@@ -23,13 +23,14 @@ final class FormationType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            ->add('title', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Intitulé', 'attr' => ['placeholder' => 'ex. BTS SIO SLAM']])
-            ->add('degreeType', TextType::class, ['label' => 'Type de diplôme', 'required' => false, 'attr' => ['placeholder' => 'BTS, Licence, BAC…']])
+            ->add('title', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Intitulé', 'attr' => ['placeholder' => 'ex. Programme Grande École']])
+            ->add('degreeType', TextType::class, ['label' => 'Type de diplôme', 'required' => false, 'attr' => ['placeholder' => 'Bachelor, Master, BAC…']])
             ->add('school', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Établissement'])
             ->add('location', TextType::class, ['label' => 'Lieu', 'required' => false])
             ->add('startDate', DateType::class, ['constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Début', 'widget' => 'single_text'])
             ->add('endDate', DateType::class, ['label' => 'Fin', 'widget' => 'single_text', 'required' => false])
             ->add('isCurrent', CheckboxType::class, ['label' => 'Formation en cours', 'required' => false])
+            ->add('reason', TextareaType::class, ['label' => 'Pourquoi ce choix ?', 'required' => false, 'attr' => ['rows' => 3, 'class' => 'markdown-editor', 'data-md' => 'block', 'placeholder' => "ex. Approfondir l'architecture logicielle et viser un poste d'ingénieur."], 'help' => 'Affiché dans la frise du parcours : ce qui t’a amené là, ce que tu cherchais à apprendre.'])
             ->add('description', TextareaType::class, ['help' => "Affichée dans « Mon parcours » sur la page d'accueil.", 'label' => 'Description courte', 'required' => false, 'attr' => ['rows' => 4, 'class' => 'markdown-editor', 'data-md' => 'block']])
             ->add('longDescription', TextareaType::class, ['label' => 'Description détaillée', 'required' => false, 'attr' => ['rows' => 8, 'class' => 'markdown-editor'], 'help' => 'Affichée sur la page des projets rattachés à cette école (section « École »). Vide : la description courte est utilisée.'])
             ->add('order', IntegerType::class, ['empty_data' => '0', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => "Ordre d'affichage"])

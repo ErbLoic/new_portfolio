@@ -14,6 +14,7 @@
   'use strict';
 
   const DATA = () => window.PORTFOLIO_DATA || {};
+  const T = () => DATA().portfolio?.terminal || {};
   const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -217,14 +218,17 @@
     const CMDS = {
       help: () => print(
         `<span class="w">Commandes disponibles</span>\n` +
-        [['whoami', 'qui suis-je'], ['ls [projets|perso|xp|formations]', 'lister le contenu'], ['open &lt;n°&gt;', 'ouvrir un projet de la dernière liste'],
+        [['whoami', 'qui suis-je'], ['ls [projets|perso|xp|formations|missions|skills|certifs]', 'lister le contenu'], ['open &lt;n°&gt;', 'ouvrir un projet de la dernière liste'],
           ['cv', 'télécharger mon CV'], ['contact', 'me joindre'], ['socials', 'mes réseaux'], ['stack', 'technos que j’utilise'],
           ['eggs', 'tes trophées'], ['theme [green|amber|blue|pink]', 'changer de couleur'],
+          ['neofetch', 'infos système'], ['cd [profil|projets|contact]', 'aller à une section'], ['cat README.md', 'lire un fichier'],
+          ['git log', 'derniers projets'], ['fortune · cowsay · matrix · ping', 'pour le fun'],
+          ...(T().commands || []).map((c) => [esc(c.cmd), 'perso']),
           ['party', 'surprise'], ['clear', 'effacer'], ['exit', 'fermer (ou Échap)']]
           .map(([c, d]) => `  <span class="c">${c.padEnd(34)}</span><span class="m">${d}</span>`).join('\n')),
       whoami: () => {
         const p = DATA().portfolio || {};
-        print(`<span class="w">${esc(p.first_name)} ${esc(p.last_name)}</span>\n${esc(p.bio || 'Étudiant·e BTS SIO')}\n<span class="m">📍 ${esc(p.location || '—')} · promo ${esc(p.year_start)}–${esc(p.year_end)}</span>`);
+        print(`<span class="w">${esc(p.first_name)} ${esc(p.last_name)}</span>\n${esc(p.job_title || '')}\n<span class="m">📍 ${esc(p.location || '—')} · promo ${esc(p.year_start)}–${esc(p.year_end)}</span>`);
       },
       ls: (arg = '') => {
         const d = DATA();
@@ -232,7 +236,7 @@
         if (['projets', 'projects', 'p'].includes(a) || !a) {
           last = (d.projects || []).map((p) => ({ url: `/projet/${p.id}`, title: p.title }));
           print(`<span class="w">projets/</span>\n` + list(d.projects || [], (p, i) => `  <span class="y">[${i + 1}]</span> ${esc(p.title)} <span class="m">· ${esc(p.type)} · ${esc(p.year)}</span>`));
-          if (!a) print(`<span class="m">Aussi : ls perso · ls xp · ls formations</span>`);
+          if (!a) print(`<span class="m">Aussi : ls perso · ls xp · ls missions · ls skills · ls certifs · ls formations</span>`);
         } else if (['perso', 'side'].includes(a)) {
           last = (d.personalProjects || []).map((p) => ({ url: `/projet-perso/${p.id}`, title: p.title }));
           print(`<span class="w">perso/</span>\n` + list(d.personalProjects || [], (p, i) => `  <span class="y">[${i + 1}]</span> ${esc(p.title)}${p.is_featured ? ' ★' : ''} <span class="m">· ${esc(p.category || '')}</span>`));
@@ -240,6 +244,13 @@
           print(`<span class="w">experiences/</span>\n` + list(d.stages || [], (s) => `  ${esc(s.role)} <span class="m">@ ${esc(s.company?.name)} · ${esc(s.type || 'stage')}${s.is_current ? ' · <span class="c">en cours</span>' : ''}</span>`));
         } else if (['formations', 'school'].includes(a)) {
           print(`<span class="w">formations/</span>\n` + list(d.formations || [], (f) => `  ${esc(f.title)} <span class="m">· ${esc(f.school)}${f.is_current ? ' · en cours' : ''}</span>`));
+        } else if (['missions', 'm'].includes(a)) {
+          const ms = (d.stages || []).flatMap((s) => (s.missions || []).map((m) => ({ ...m, where: s.company?.name })));
+          print(`<span class="w">missions/</span>\n` + list(ms, (m) => `  ${esc(m.title)} <span class="m">@ ${esc(m.where || '')}${m.tags?.length ? ' · ' + esc(m.tags.join(', ')) : ''}</span>`));
+        } else if (['skills', 'competences', 'compétences'].includes(a)) {
+          print(`<span class="w">skills/</span>\n` + list(d.competences || [], (c) => `  ${esc(c.label).padEnd(18)} <span class="c">${'■'.repeat(c.level || 3)}${'□'.repeat(5 - (c.level || 3))}</span> <span class="m">${esc(c.bloc)}</span>`));
+        } else if (['certifs', 'certifications'].includes(a)) {
+          print(`<span class="w">certifs/</span>\n` + list(d.certifications || [], (c) => `  🏅 ${esc(c.name)} <span class="m">· ${esc(c.issuer)}</span>`));
         } else print(`<span class="e">ls: ${esc(arg)}: dossier introuvable</span>`);
       },
       open: (n) => {
@@ -256,7 +267,7 @@
       },
       contact: () => {
         const p = DATA().portfolio || {};
-        print(`📧 ${p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : '—'}\n<span class="m">ou utilise le formulaire en bas de page</span>`);
+        print(`📧 ${p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : '—'}${p.linkedin_url ? `\n💼 <a href="${esc(p.linkedin_url)}" target="_blank" rel="noopener">LinkedIn</a>` : ''}`);
       },
       socials: () => {
         const p = DATA().portfolio || {};
@@ -290,15 +301,91 @@
       exit: () => close(),
       party: () => { close(); party(); },
       coffee: () => print('<span class="y">☕ Erreur 418 : je suis une théière.</span>\n<span class="m">(RFC 2324 — oui, ça existe vraiment)</span>'),
-      hire: () => print('<span class="c">✔ Excellente décision.</span> Tape <span class="w">contact</span> 😉'),
       sudo: (...a) => {
         const c = a.join(' ');
         if (/rm\s+-rf/.test(c)) return nuke();
-        if (c === 'hire me' || c === 'hire') return CMDS.hire();
+        if (/^(apt|apt-get)\s+install\s+/.test(c)) return print(`<span class="c">✔ ${esc(c.split(/\s+/).pop())} installé.</span> <span class="m">Compétence débloquée… ou presque, il faut encore pratiquer.</span>`);
+        if (c === 'make me a sandwich' || c === 'make sandwich') return print('<span class="c">Okay. 🥪</span> <span class="m">(xkcd 149)</span>');
+        if (c === 'su' || c === 'su -' || c === '-i') return print('<span class="y">⚠ Mode root activé.</span> <span class="m">Grands pouvoirs, grandes responsabilités. Utilise-les bien.</span>');
+        if (/^(shutdown|reboot|poweroff)/.test(c)) return print('<span class="e">Refusé :</span> <span class="m">ce portfolio est en 24/7, comme ma motivation.</span>');
         print(`<span class="e">[sudo] mot de passe pour ${esc(user())} :</span> <span class="m">bien essayé 😏 — tu es déjà root ici.</span>`);
       },
       rm: () => print('<span class="e">rm: permission refusée. Essaie avec sudo… si tu oses.</span>'),
       vim: () => print('<span class="m">Tu es entré dans vim. Personne n’en est jamais ressorti.\nTape :q! … non, je plaisante, tape exit.</span>'),
+      nano: () => print('<span class="m">nano ? Choix raisonnable. Mais ici on ne modifie rien 😌</span>'),
+      emacs: () => print('<span class="m">Excellent OS. Il lui manque juste un bon éditeur de texte.</span>'),
+      neofetch: () => {
+        const d = DATA(), p = d.portfolio || {};
+        const n = (k) => (d[k] || []).length;
+        const days = p.year_start ? Math.floor((Date.now() - new Date(`${p.year_start}-09-01`)) / 864e5) : null;
+        const logo = ['   ___  ', '  / _ \\ ', ' | | | |', ' | |_| |', '  \\___/ ', '        '];
+        const info = [
+          `<span class="c">${esc(user())}</span>@<span class="c">portfolio</span>`,
+          `<span class="y">OS</span>      PortfolioOS ${new Date().getFullYear()} (Symfony)`,
+          `<span class="y">Rôle</span>    ${esc(p.job_title || 'Développeur·se')}`,
+          `<span class="y">Uptime</span>  ${days !== null ? `${days} jours de code` : 'depuis toujours'}`,
+          `<span class="y">Projets</span> ${n('projects') + n('realisations') + n('personalProjects')} · <span class="y">XP</span> ${n('stages')}`,
+          `<span class="y">Shell</span>   egg-sh 1.0 · <span class="y">Café</span> ∞`,
+        ];
+        print(logo.map((l, i) => `<span class="c">${l}</span>  ${info[i] || ''}`).join('\n'));
+      },
+      pwd: () => print('/home/' + esc(user()) + '/portfolio'),
+      cd: (dir = '') => {
+        const map = { profil: '#profil', projets: '#realisations', contact: '#contact', '~': '#hero', '/': '#hero' };
+        const target = map[dir.toLowerCase().replace(/\/$/, '')];
+        if (!dir || dir === '..') return print('<span class="m">Tu ne peux pas fuir, tu es déjà à la racine du talent.</span>');
+        if (!target) return print(`<span class="e">cd: ${esc(dir)}: dossier introuvable</span> <span class="m">(profil · projets · contact)</span>`);
+        close();
+        document.querySelector(target)?.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth' });
+      },
+      cat: (f = '') => {
+        const p = DATA().portfolio || {};
+        const files = {
+          'readme.md': () => `<span class="w"># ${esc(p.first_name)} ${esc(p.last_name)}</span>\n${esc(p.bio || '')}\n\n<span class="m">→ tape « ls » pour voir mes projets</span>`,
+          'motivation.txt': () => T().motivation ? `<span class="c">${esc(T().motivation)}</span>` : '<span class="c">██████████ 100%</span> <span class="m">(chargée à bloc)</span>',
+          '.secrets': () => '<span class="e">Permission refusée.</span> <span class="m">Indice : il y a d’autres œufs cachés… tape « eggs ».</span>',
+        };
+        const fn = files[f.toLowerCase()];
+        print(fn ? fn() : `<span class="e">cat: ${esc(f || '?')}: fichier introuvable</span> <span class="m">(README.md · motivation.txt · .secrets)</span>`);
+      },
+      history: () => print(hist.length ? hist.map((h, i) => `  <span class="m">${String(i + 1).padStart(3)}</span>  ${esc(h)}`).join('\n') : '<span class="m">(vide)</span>'),
+      git: (sub = '') => {
+        if (sub === 'log') {
+          const items = [...(DATA().projects || []), ...(DATA().personalProjects || [])].slice(0, 6);
+          return print(list(items, (p) => `<span class="y">commit ${Math.abs([...String(p.title)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)).toString(16).padStart(7, '0').slice(0, 7)}</span>  feat: ${esc(p.title)} <span class="m">(${esc(p.year || '')})</span>`));
+        }
+        if (sub === 'blame') return print('<span class="m">C’était déjà comme ça quand je suis arrivé·e. 🙃</span>');
+        if (sub === 'push') return print('<span class="e">! [rejected]</span> <span class="m">On ne push pas en prod un vendredi.</span>');
+        print('<span class="m">usage : git [log|blame|push]</span>');
+      },
+      ping: (host = 'portfolio') => {
+        let i = 0;
+        const t = setInterval(() => {
+          if (!wrap || i >= 3) { clearInterval(t); if (wrap) print(`<span class="c">--- ${esc(host)} : 0% de perte — connexion stable 📡</span>`); return; }
+          print(`64 octets de ${esc(host)} : icmp_seq=${++i} temps=${(Math.random() * 20 + 5).toFixed(1)} ms`);
+        }, REDUCED ? 0 : 350);
+      },
+      fortune: () => {
+        const q = T().fortunes?.length ? T().fortunes : ['Ça marche sur ma machine. — tout dev, un jour', 'Il y a 10 types de personnes : celles qui comprennent le binaire et les autres.',
+          'Le meilleur code est celui qu’on n’a pas besoin d’écrire.', 'D’abord, résous le problème. Ensuite, écris le code.',
+          'Un bug corrigé en prod vaut deux tests jamais écrits. (Non.)', 'Les noms de variables, c’est le vrai défi de l’informatique.'];
+        print(`<span class="y">🥠 ${esc(q[Math.floor(Math.random() * q.length)])}</span>`);
+      },
+      cowsay: (...a) => {
+        const raw = a.join(' ') || T().cowsay || 'Meuh. Bienvenue sur mon portfolio !';
+        const t = esc(raw);
+        const line = '-'.repeat(raw.length + 2);
+        print(` ${line}\n< ${t} >\n ${line}\n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||`);
+      },
+      matrix: () => {
+        const chars = 'アイウエオカキクケコ01<>/{}$#';
+        let n = 0;
+        const t = setInterval(() => {
+          if (!wrap || n++ >= 12) { clearInterval(t); if (wrap) print('<span class="c">Wake up… le portfolio t’a trouvé. 🐇</span>'); return; }
+          print(`<span class="c">${Array.from({ length: 60 }, () => (Math.random() < 0.3 ? ' ' : chars[Math.floor(Math.random() * chars.length)])).join('')}</span>`);
+        }, REDUCED ? 0 : 70);
+      },
+      man: (c = '') => print(CMDS[c] ? `<span class="m">man ${esc(c)} : la doc, c’est « help ». Le reste, c’est de l’expérience.</span>` : '<span class="m">Quelle page de manuel veux-tu ? Exemple : man sudo</span>'),
     };
     let last = [];
 
@@ -320,7 +407,10 @@
     function run(line) {
       const [cmd, ...args] = line.trim().split(/\s+/);
       if (!cmd) return;
-      const fn = CMDS[cmd.toLowerCase()];
+      const key = cmd.toLowerCase();
+      const custom = !['help', 'clear', 'exit'].includes(key) && (T().commands || []).find((c) => c.cmd === key);
+      if (custom) return print(esc(custom.out));
+      const fn = CMDS[key];
       if (fn) fn(...args);
       else print(`<span class="e">${esc(cmd)}: commande introuvable</span> <span class="m">— tape « help »</span>`);
     }

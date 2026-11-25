@@ -8,17 +8,11 @@ use App\Entity\Realisation;
 use App\Service\PortfolioData;
 use App\Service\StructuredData;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Address;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Validator\Constraints as Assert;
-use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /** Site public (anciennement le dossier « Portfolio » + l'API Laravel). */
 final class SiteController extends AbstractController
@@ -108,67 +102,5 @@ final class SiteController extends AbstractController
     {
         // Même page que les réalisations (galerie, liens GitHub / démo, Markdown)
         return $this->renderWork('site/realisation.html.twig', $data->personalProject($project), $data, $schema, 'personal_project_show', $project->id);
-    }
-
-    /** Formulaire de contact (appelé en JSON par app.js). */
-    #[Route('/contact', name: 'contact', methods: ['POST'])]
-    public function contact(
-        Request $request,
-        ValidatorInterface $validator,
-        // Le mailer n'est construit qu'à l'envoi (dans le try) : une config invalide renvoie un JSON propre
-        #[\Symfony\Component\DependencyInjection\Attribute\AutowireServiceClosure(MailerInterface::class)] \Closure $mailer,
-        EntityManagerInterface $em,
-        #[Autowire('%env(default::MAILER_FROM)%')] ?string $mailerFrom,
-        ?\Psr\Log\LoggerInterface $logger = null,
-    ): JsonResponse {
-        $payload = $request->toArray();
-        $input = [
-            'name' => trim((string) ($payload['name'] ?? '')),
-            'email' => trim((string) ($payload['email'] ?? '')),
-            'message' => trim((string) ($payload['message'] ?? '')),
-        ];
-
-        $violations = $validator->validate($input, new Assert\Collection([
-            'name' => [new Assert\NotBlank(), new Assert\Length(max: 255)],
-            'email' => [new Assert\NotBlank(), new Assert\Email(), new Assert\Length(max: 255)],
-            'message' => [new Assert\NotBlank(), new Assert\Length(max: 5000)],
-        ]));
-        if (count($violations) > 0) {
-            return $this->json(['success' => false, 'error' => 'Formulaire invalide : vérifiez les champs.'], 422);
-        }
-
-        $owner = $em->getRepository(Portfolio::class)->findOneBy([], ['id' => 'ASC']);
-        // Formulaire désactivé dans l'admin : on refuse aussi les envois directs
-        if ($owner && !$owner->showContactForm) {
-            return $this->json(['success' => false, 'error' => 'Le formulaire de contact est désactivé.'], 403);
-        }
-        $to = $owner?->email ?: $mailerFrom;
-        if (!$to || !$mailerFrom) {
-            return $this->json(['success' => false, 'error' => 'Adresse email de destination non configurée'], 500);
-        }
-
-        try {
-            $mailer()->send((new TemplatedEmail())
-                ->to($to)
-                ->replyTo(new Address($input['email'], $input['name']))
-                ->from(new Address($mailerFrom, 'Portfolio — formulaire de contact'))
-                ->subject('📬 Nouveau message de '.$input['name'])
-                ->htmlTemplate('emails/contact.html.twig')
-                ->textTemplate('emails/contact.txt.twig')
-                ->context([
-                    'senderName' => $input['name'],
-                    'senderEmail' => $input['email'],
-                    'messageBody' => $input['message'],
-                    'sentAt' => new \DateTimeImmutable(),
-                    'siteUrl' => $this->generateUrl('home', [], \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL),
-                    'ownerFirstName' => $owner?->firstName,
-                ]));
-        } catch (\Throwable $e) {
-            $logger?->error('Envoi du formulaire de contact impossible : {message}', ['message' => $e->getMessage()]);
-
-            return $this->json(['success' => false, 'error' => "Le message n'a pas pu être envoyé. Réessayez plus tard ou écrivez-moi directement par email."], 500);
-        }
-
-        return $this->json(['success' => true, 'message' => 'Message envoyé avec succès']);
     }
 }

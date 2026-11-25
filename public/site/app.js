@@ -535,6 +535,7 @@ function renderPortfolio(data) {
     const techs = new Set();
     [...(data.projects || []), ...(data.realisations || []), ...(data.personalProjects || [])]
         .forEach(p => (p.tags || []).forEach(t => techs.add(t.tag.trim().toLowerCase())));
+    (data.competences || []).forEach(c => techs.add(String(c.label).trim().toLowerCase()));
     const statTechs = document.getElementById('stat-techs');
     if (statTechs) statTechs.textContent = techs.size;
 
@@ -570,11 +571,20 @@ function renderPortfolio(data) {
     // Pied de page rendu côté serveur (nom, titre, mentions légales)
 }
 
-function renderCompetences(competences) {
-    if (!competences || !competences.length) return;
+const escHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const LEVEL_LABELS = ['', 'Notions', 'Débutant', 'Intermédiaire', 'Avancé', 'Expert'];
 
+function renderCompetences(competences, certifications) {
+    const section = document.getElementById('competences');
+    const hasComp = competences && competences.length;
+    const hasCert = certifications && certifications.length;
+    if (!section) return;
+    section.classList.toggle('hidden', !hasComp && !hasCert);
+    document.querySelectorAll('[href="#competences"]').forEach((a) => a.closest('li, a').classList.toggle('hidden', !hasComp && !hasCert));
+    renderCertifications(certifications);
     const container = document.getElementById('competences-grid');
     container.innerHTML = '';
+    if (!hasComp) return;
 
     // Grouper par bloc
     const blocs = {};
@@ -587,23 +597,22 @@ function renderCompetences(competences) {
 
     // Générer le HTML pour chaque bloc
     Object.keys(blocs).sort().forEach(bloc => {
-        const blocClass = bloc.toLowerCase();
         const comps = blocs[bloc];
+        const level = (n) => Math.min(5, Math.max(1, parseInt(n, 10) || 3));
 
         const blocHtml = `
-            <div class="competence-bloc ${blocClass}">
-                <div class="bloc-header">
-                    <div class="bloc-icon">${bloc}</div>
-                    <h3 class="bloc-title">Bloc ${bloc}</h3>
-                </div>
-                <div class="competences-list">
+            <div class="competence-bloc">
+                <h3 class="bloc-title">${escHtml(bloc)}</h3>
+                <ul class="skill-list">
                     ${comps.map(comp => `
-                        <div class="competence-item">
-                            <span class="competence-code">${comp.code}</span>
-                            <p class="competence-label">${comp.label}</p>
-                        </div>
+                        <li class="skill-item" title="${escHtml(comp.description || '')}">
+                            <span class="skill-name">${comp.icon ? `<i class="bi ${escHtml(comp.icon)}" aria-hidden="true"></i>` : ''}${escHtml(comp.label)}</span>
+                            <span class="skill-level" role="img" aria-label="Niveau ${level(comp.level)} sur 5 : ${LEVEL_LABELS[level(comp.level)]}">
+                                ${[1, 2, 3, 4, 5].map(i => `<span class="skill-pip${i <= level(comp.level) ? ' on' : ''}"></span>`).join('')}
+                            </span>
+                        </li>
                     `).join('')}
-                </div>
+                </ul>
             </div>
         `;
 
@@ -611,28 +620,53 @@ function renderCompetences(competences) {
     });
 }
 
-function renderStages(stages) {
-    if (!stages || !stages.length) {
-        document.querySelector('.stages-section')?.classList.add('hidden');
-        return;
-    }
+function renderCertifications(certifications) {
+    const box = document.getElementById('certifications-list');
+    const wrap = document.querySelector('.certifications-block');
+    if (!box || !wrap) return;
+    wrap.classList.toggle('hidden', !certifications || !certifications.length);
+    if (!certifications || !certifications.length) return;
+    const today = new Date().toISOString().slice(0, 10);
+    box.innerHTML = certifications.map(c => {
+        const expired = c.expires_at && c.expires_at < today;
+        const inner = `
+            <span class="cert-badge">${c.badge_url ? `<img src="${escHtml(getImageUrl(c.badge_url))}" alt="" loading="lazy">` : '<i class="bi bi-patch-check" aria-hidden="true"></i>'}</span>
+            <span class="cert-text">
+                <strong>${escHtml(c.name)}</strong>
+                <span>${escHtml(c.issuer)}${c.issued_at ? ' · ' + formatDate(c.issued_at) : ''}${expired ? ' · <em>expirée</em>' : ''}</span>
+            </span>
+            ${c.credential_url ? '<i class="bi bi-box-arrow-up-right cert-link-ico" aria-hidden="true"></i>' : ''}`;
+        return c.credential_url
+            ? `<a class="cert-card" href="${escHtml(c.credential_url)}" target="_blank" rel="noopener" aria-label="${escHtml(c.name)} — vérifier la certification">${inner}</a>`
+            : `<div class="cert-card">${inner}</div>`;
+    }).join('');
+}
 
-    document.querySelector('.stages-section')?.classList.remove('hidden');
-    const container = document.getElementById('stages-timeline');
-    container.innerHTML = '';
+function renderMissions(missions) {
+    if (!missions || !missions.length) return '';
+    return `
+        <div class="missions">
+            <p class="missions-title"><i class="bi bi-list-check" aria-hidden="true"></i> Mes missions</p>
+            ${missions.map(m => `
+                <details class="mission">
+                    <summary>${escHtml(m.title)}</summary>
+                    <div class="mission-body md">
+                        ${m.context_html ? `<p class="mission-step">Contexte</p>${m.context_html}` : ''}
+                        ${m.actions_html ? `<p class="mission-step">Ce que j'ai fait</p>${m.actions_html}` : ''}
+                        ${m.results_html ? `<p class="mission-step">Résultats</p>${m.results_html}` : ''}
+                        ${m.tags?.length ? `<div class="mission-tags">${m.tags.map(t => `<span>${escHtml(t)}</span>`).join('')}</div>` : ''}
+                    </div>
+                </details>
+            `).join('')}
+        </div>`;
+}
 
-    // Trier les stages par date de fin (le plus récent en premier)
-    const sortedStages = [...stages].sort((a, b) => {
-        const dateA = new Date(a.end_date || a.start_date);
-        const dateB = new Date(b.end_date || b.start_date);
-        return dateB - dateA;
-    });
-
+/** Éléments de frise pour les expériences : { start, current, html(isRight) }. */
+function stageTimelineItems(stages) {
     // Type d'expérience : stage, alternance ou job
     const EXPERIENCE_TYPES = { stage: 'Stage', alternance: 'Alternance', job: 'Job' };
 
-    sortedStages.forEach((stage, index) => {
-        const isRight = index % 2 === 1;
+    return (stages || []).map(stage => ({ start: stage.start_date, current: stage.is_current, html: (isRight) => {
         const typeLabel = EXPERIENCE_TYPES[stage.type] || 'Stage';
         const period = `${formatDate(stage.start_date)} — ${stage.is_current ? 'En cours' : formatDate(stage.end_date)}`;
         const rightBadge = stage.is_current
@@ -648,7 +682,7 @@ function renderStages(stages) {
         const logoColClass = stage.company?.photo_url ? '' : 'stage-logo-col--fallback';
 
         const stageHtml = `
-            <div class="timeline-item ${isRight ? 'right' : ''}">
+            <div class="timeline-item ${isRight ? 'right' : ''}${stage.is_current ? ' is-current' : ''}">
                 <div class="timeline-dot"></div>
                 <div class="stage-card" ${isRight ? 'style="grid-column: 2;"' : ''}>
                     <div class="stage-card-inner">
@@ -672,7 +706,10 @@ function renderStages(stages) {
                                 <p class="stage-dates">${period}</p>
                                 ${rightBadge}
                             </div>
+                            ${stage.formation ? `<p class="via"><i class="bi bi-mortarboard" aria-hidden="true"></i> ${escHtml(EXPERIENCE_TYPES[stage.type] || 'Stage')} réalisé${stage.type === 'alternance' ? 'e' : ''} dans le cadre de <strong>${escHtml(stage.formation.title)}</strong>${stage.formation.school ? ` · ${escHtml(stage.formation.school)}` : ''}</p>` : ''}
+                            ${stage.reason_html ? `<div class="why"><p class="why-label"><i class="bi bi-lightbulb" aria-hidden="true"></i> Pourquoi ce choix ?</p><div class="why-text md">${stage.reason_html}</div></div>` : ''}
                             ${stage.description_html ? `<div class="stage-description md">${stage.description_html}</div>` : ''}
+                            ${renderMissions(stage.missions)}
                         </div>
                     </div>
                 </div>
@@ -680,29 +717,13 @@ function renderStages(stages) {
             </div>
         `;
 
-        container.innerHTML += stageHtml;
-    });
+        return stageHtml;
+    }}));
 }
 
-function renderFormations(formations) {
-    if (!formations || !formations.length) {
-        document.querySelector('.formations-section')?.classList.add('hidden');
-        return;
-    }
-
-    document.querySelector('.formations-section')?.classList.remove('hidden');
-    const container = document.getElementById('formations-timeline');
-    container.innerHTML = '';
-
-    // Trier les formations par date de fin (le plus récent en premier)
-    const sortedFormations = [...formations].sort((a, b) => {
-        const dateA = new Date(a.end_date || a.start_date);
-        const dateB = new Date(b.end_date || b.start_date);
-        return dateB - dateA;
-    });
-
-    sortedFormations.forEach((formation, index) => {
-        const isRight = index % 2 === 1;
+/** Éléments de frise pour les formations : { start, current, html(isRight) }. */
+function formationTimelineItems(formations) {
+    return (formations || []).map(formation => ({ start: formation.start_date, current: formation.is_current, html: (isRight) => {
         const period = formation.period || `${formatDate(formation.start_date)} — ${formation.is_current ? 'En cours' : formatDate(formation.end_date)}`;
         const schoolName = formation.school || 'École';
         const schoolInitial = schoolName.charAt(0).toUpperCase();
@@ -718,7 +739,7 @@ function renderFormations(formations) {
             : (formation.degree_type ? `<span class="formation-degree-badge">${formation.degree_type}</span>` : '');
 
         const formationHtml = `
-            <div class="timeline-item formation ${isRight ? 'right' : ''}">
+            <div class="timeline-item formation ${isRight ? 'right' : ''}${formation.is_current ? ' is-current' : ''}">
                 <div class="timeline-dot formation-dot"></div>
                 <div class="formation-card-v2" ${isRight ? 'style="grid-column: 2;"' : ''}>
                     <div class="stage-card-inner">
@@ -741,6 +762,7 @@ function renderFormations(formations) {
                                 <p class="formation-dates">${period}</p>
                                 ${rightBadge}
                             </div>
+                            ${formation.reason_html ? `<div class="why"><p class="why-label"><i class="bi bi-lightbulb" aria-hidden="true"></i> Pourquoi ce choix ?</p><div class="why-text md">${formation.reason_html}</div></div>` : ''}
                             ${formation.description_html ? `<div class="stage-description md">${formation.description_html}</div>` : ''}
                         </div>
                     </div>
@@ -749,8 +771,137 @@ function renderFormations(formations) {
             </div>
         `;
 
-        container.innerHTML += formationHtml;
-    });
+        return formationHtml;
+    }}));
+}
+
+
+/* ---------- Frise fusionnée : deux couloirs (formations | expériences) groupés par année ---------- */
+const PM_TYPES = { stage: 'Stage', alternance: 'Alternance', job: 'Job' };
+
+function pmCard(kind, o) {
+    const isF = kind === 'formation';
+    const title = isF ? (o.title || 'Formation') : (o.role || 'Expérience');
+    const sub = isF ? [o.school, o.location].filter(Boolean).join(' — ') : (o.company?.name || '');
+    const logo = isF ? o.logo_url : o.company?.photo_url;
+    const initial = (sub || title).charAt(0).toUpperCase();
+    const period = `${formatDate(o.start_date)} — ${o.is_current ? 'aujourd’hui' : formatDate(o.end_date)}`;
+    const badge = isF ? (o.degree_type || 'Formation') : (PM_TYPES[o.type] || 'Stage');
+    return `
+        <article class="pm-card pm-${kind}${o.is_current ? ' is-current' : ''}">
+            <div class="pm-card-head">
+                <span class="pm-logo">${logo ? `<img src="${escHtml(getImageUrl(logo))}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span>${escHtml(initial)}</span></span>
+                <div class="pm-card-titles">
+                    <h4>${escHtml(title)}</h4>
+                    ${sub ? `<p class="pm-sub">${escHtml(sub)}</p>` : ''}
+                </div>
+            </div>
+            <div class="pm-meta">
+                <span class="pm-badge"><i class="bi ${isF ? 'bi-mortarboard' : 'bi-briefcase'}" aria-hidden="true"></i>${escHtml(badge)}</span>
+                <span class="pm-dates">${period}</span>
+                ${o.is_current ? '<span class="pm-now"><span></span>En cours</span>' : ''}
+            </div>
+            ${isF ? pmLinkedStages(o) : (o.formation ? `<p class="via"><i class="bi bi-mortarboard" aria-hidden="true"></i> ${escHtml(PM_TYPES[o.type] || 'Stage')} réalisé${o.type === 'alternance' ? 'e' : ''} dans le cadre de <strong>${escHtml(o.formation.title)}</strong>${o.formation.school ? ` · ${escHtml(o.formation.school)}` : ''}</p>` : '')}
+            ${o.reason_html ? `<div class="why"><p class="why-label"><i class="bi bi-lightbulb" aria-hidden="true"></i> Pourquoi ce choix ?</p><div class="why-text md">${o.reason_html}</div></div>` : ''}
+            ${o.description_html ? `<div class="pm-desc md">${o.description_html}</div>` : ''}
+            ${isF ? '' : renderMissions(o.missions)}
+        </article>`;
+}
+
+let pmAllStages = [];
+/** Côté formation : rappelle les stages / alternances qu'elle a demandés. */
+function pmLinkedStages(f) {
+    const linked = pmAllStages.filter(s => s.formation_id === f.id);
+    if (!linked.length) return '';
+    return `<p class="via via-f"><i class="bi bi-link-45deg" aria-hidden="true"></i> ${linked.map(s =>
+        `${escHtml(PM_TYPES[s.type] || 'Stage')} : <strong>${escHtml(s.role)}</strong>${s.company?.name ? ` chez ${escHtml(s.company.name)}` : ''}`).join(' · ')}</p>`;
+}
+
+function renderMergedTimeline(container, formations, stages, portfolio = {}) {
+    pmAllStages = stages;
+    const year = (o) => (o.start_date ? new Date(o.start_date).getFullYear() : 0);
+    const byDate = (a, b) => (b.is_current - a.is_current) || (new Date(b.start_date || 0) - new Date(a.start_date || 0));
+    const years = [...new Set([...formations, ...stages].map(year))].sort((a, b) => b - a);
+
+    container.innerHTML = `
+        <div class="pm" data-pm>
+            <div class="pm-legend" aria-hidden="true">
+                <span class="pm-legend-f"><i class="bi bi-mortarboard"></i> Formations</span>
+                <span class="pm-legend-x"><i class="bi bi-briefcase"></i> Expériences</span>
+            </div>
+            <div class="pm-axis" aria-hidden="true"><span class="pm-axis-fill"></span></div>
+            ${portfolio.timeline_next_html ? `
+                <div class="pm-end pm-next">
+                    <span class="pm-end-dot"><i class="bi bi-flag" aria-hidden="true"></i></span>
+                    <div class="pm-end-card"><p class="pm-end-label">Et ensuite ?</p><div class="md">${portfolio.timeline_next_html}</div></div>
+                </div>` : ''}
+            ${years.map(y => {
+                const f = formations.filter(o => year(o) === y).sort(byDate);
+                const x = stages.filter(o => year(o) === y).sort(byDate);
+                return `
+                    <div class="pm-year"><span>${y || '—'}</span></div>
+                    <div class="pm-row">
+                        <div class="pm-lane pm-lane-f">${f.map(o => pmCard('formation', o)).join('')}</div>
+                        <div class="pm-lane pm-lane-x">${x.map(o => pmCard('stage', o)).join('')}</div>
+                    </div>`;
+            }).join('')}
+            ${portfolio.timeline_start_html ? `
+                <div class="pm-end pm-start">
+                    <span class="pm-end-dot"><i class="bi bi-rocket-takeoff" aria-hidden="true"></i></span>
+                    <div class="pm-end-card"><p class="pm-end-label">Le point de départ</p><div class="md">${portfolio.timeline_start_html}</div></div>
+                </div>` : ''}
+        </div>`;
+    initTimelineProgress();
+}
+
+/** L'axe central se remplit au fil du défilement. */
+let pmProgressBound = false;
+function initTimelineProgress() {
+    if (pmProgressBound) return;
+    pmProgressBound = true;
+    let ticking = false;
+    const update = () => {
+        ticking = false;
+        document.querySelectorAll('[data-pm]').forEach(pm => {
+            const r = pm.getBoundingClientRect();
+            const p = Math.min(1, Math.max(0, (window.innerHeight * 0.65 - r.top) / r.height));
+            pm.style.setProperty('--pm-progress', p.toFixed(3));
+        });
+    };
+    window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+}
+
+/** Remplit une frise : éléments en cours d'abord, puis du plus récent au plus ancien. */
+function fillTimeline(container, items) {
+    if (!container) return;
+    items.sort((a, b) => (b.current - a.current) || (new Date(b.start || 0) - new Date(a.start || 0)));
+    container.innerHTML = items.map((it, i) => it.html(i % 2 === 1)).join('');
+}
+
+/**
+ * Parcours, selon le choix fait dans l'admin (Profil → Parcours) :
+ * - « split »  : formations dans « Profil », expériences dans « Mes expériences » ;
+ * - « merged » : formations et expériences sur une seule frise dans « Profil ».
+ */
+function renderParcours(data) {
+    const merged = data.portfolio?.timeline_mode === 'merged';
+    const formations = formationTimelineItems(data.formations);
+    const stages = stageTimelineItems(data.stages);
+    const parcoursItems = merged ? [...formations, ...stages] : formations;
+
+    document.querySelector('.parcours-section')?.classList.toggle('hidden', !parcoursItems.length);
+    const parcours = document.getElementById('parcours-timeline');
+    parcours?.classList.toggle('timeline', !merged);
+    if (merged && parcours) renderMergedTimeline(parcours, data.formations || [], data.stages || [], data.portfolio || {});
+    else fillTimeline(parcours, parcoursItems);
+
+    const showStages = !merged && stages.length > 0;
+    document.querySelector('.stages-section')?.classList.toggle('hidden', !showStages);
+    const stagesContainer = document.getElementById('stages-timeline');
+    if (showStages) fillTimeline(stagesContainer, stages);
+    else if (stagesContainer) stagesContainer.innerHTML = '';
 }
 
 function renderRealisations(data) {
@@ -1217,30 +1368,11 @@ async function renderAllSections(data) {
     if (!data) return false;
     
     renderPortfolio(data);
-    renderStages(data.stages);
+    renderParcours(data);
+    renderCompetences(data.competences, data.certifications);
     renderRealisations(data);
     renderPersonalProjects(data.personalProjects);
     // renderProjects n'est plus appelé - fusionné avec renderRealisations
-    
-    // Charger les formations (peut être dans /all ou séparément)
-    if (data.formations) {
-        renderFormations(data.formations);
-    } else {
-        // Essayer le cache d'abord
-        const cachedFormations = getCachedItem(FORMATIONS_CACHE_KEY);
-        if (cachedFormations) {
-            renderFormations(cachedFormations);
-        } else {
-            try {
-                const response = await fetchAPI('/formations');
-                const formations = response?.data || response;
-                setCachedItem(FORMATIONS_CACHE_KEY, formations, CACHE_DURATION);
-                renderFormations(formations);
-            } catch (error) {
-                console.warn('Erreur lors du chargement des formations:', error);
-            }
-        }
-    }
     
     // Charger les messages (cache court car changent souvent)
     const cachedMessages = getCachedItem(MESSAGES_CACHE_KEY);
@@ -1449,6 +1581,7 @@ async function init() {
         showNotification('Impossible de charger les données', 'error', 8000);
     }
     hideLoadingOverlay();
+    initPageMotion();
 }
 
 // Lancer l'initialisation au chargement de la page
@@ -1507,72 +1640,27 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ----------------------------------------
-// Contact form submission
-// ----------------------------------------
-async function handleContactFormSubmit(e) {
-    e.preventDefault();
-
-    const nameEl    = document.getElementById('cf-name');
-    const emailEl   = document.getElementById('cf-email');
-    const messageEl = document.getElementById('cf-message');
-    const btn       = document.getElementById('cf-submit');
-    const feedback  = document.getElementById('cf-feedback');
-
-    const name    = nameEl.value.trim();
-    const email   = emailEl.value.trim();
-    const message = messageEl.value.trim();
-
-    if (!name || !email || !message) return;
-
-    btn.disabled = true;
-    btn.textContent = 'Envoi en cours…';
-    if (feedback) { feedback.textContent = ''; feedback.className = 'cf-feedback'; }
-
-    try {
-        const res = await fetch(`${API_BASE_URL}/contact`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ name, email, message }),
-        });
-        // Réponse inattendue (page d'erreur HTML…) : message clair plutôt qu'une erreur JSON
-        const json = await res.json().catch(() => ({ success: false, error: "Le message n'a pas pu être envoyé. Réessayez plus tard ou écrivez-moi directement par email." }));
-        if (!res.ok || !json.success) throw new Error(json.error || json.message || 'Erreur envoi');
-
-        if (feedback) {
-            feedback.textContent = 'Message envoyé avec succès !';
-            feedback.className = 'cf-feedback success';
-        }
-        nameEl.value = '';
-        emailEl.value = '';
-        messageEl.value = '';
-    } catch (err) {
-        if (feedback) {
-            feedback.textContent = err.message || 'Une erreur est survenue.';
-            feedback.className = 'cf-feedback error';
-        }
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Envoyer';
-    }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('contact-form');
-    if (form) form.addEventListener('submit', handleContactFormSubmit);
-});
-
-// ----------------------------------------
 // Scroll animations (Intersection Observer)
 // ----------------------------------------
+const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let scrollObserver = null;
+
 function initScrollAnimations() {
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('anim-in');
-                observer.unobserve(entry.target);
-            }
+    if (REDUCED_MOTION || !('IntersectionObserver' in window)) return;
+    // Les éléments qui entrent ensemble dans l'écran apparaissent en cascade,
+    // quel que soit leur rang dans la page (pas de retard « fantôme » sur les éléments isolés).
+    scrollObserver ??= new IntersectionObserver((entries) => {
+        let k = 0;
+        entries.filter(e => e.isIntersecting).forEach(entry => {
+            const el = entry.target;
+            el.style.transitionDelay = `${Math.min(k++, 5) * 70}ms`;
+            el.classList.add('anim-in');
+            scrollObserver.unobserve(el);
+            // Une fois apparu, on retire le délai pour que les survols restent instantanés
+            el.addEventListener('transitionend', () => { el.style.transitionDelay = ''; }, { once: true });
         });
     }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    const observer = scrollObserver;
 
     // Éléments à animer au scroll
     const selectors = [
@@ -1583,19 +1671,160 @@ function initScrollAnimations() {
         '.realisation-card',
         '.project-card',
         '.competence-bloc',
+        '.cert-card',
+        '.pm-year',
+        '.pm-lane-f .pm-card',
+        '.pm-lane-x .pm-card',
+        '.pm-end',
+        '.why',
+        '.section-description',
+        '.section-divider',
+        '.parcours-section > h3',
+        '.stages-section > h3',
+        '.certifications-block > h3',
+        '.personal-projects > h3',
+        '.messages-carousel',
+        '.promo-badge',
+        '.footer-container',
         '.contact-card',
-        '.contact-form',
         '#cv-section .cv-section-inner > *',
         '.profil-text > *',
         '.profil-photo-wrap',
     ];
 
-    document.querySelectorAll(selectors.join(',')).forEach((el, i) => {
+    document.querySelectorAll(selectors.join(',')).forEach((el) => {
+        if (el.classList.contains('anim-ready') || el.closest('.hidden')) return;
         el.classList.add('anim-ready');
-        // décalage léger par groupe de 4
-        el.style.transitionDelay = `${(i % 4) * 60}ms`;
+        if (el.matches('.pm-lane-f .pm-card, .timeline-item:not(.right)')) el.classList.add('from-left');
+        else if (el.matches('.pm-lane-x .pm-card, .timeline-item.right')) el.classList.add('from-right');
         observer.observe(el);
     });
+    initScrollProgress();
+}
+
+/** Fine barre de progression de lecture en haut de page. */
+function initScrollProgress() {
+    if (document.getElementById('scroll-progress')) return;
+    const bar = document.createElement('div');
+    bar.id = 'scroll-progress';
+    bar.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(bar);
+    let ticking = false;
+    const update = () => {
+        ticking = false;
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.transform = `scaleX(${max > 0 ? Math.min(1, window.scrollY / max) : 0})`;
+    };
+    window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+    update();
+}
+
+// ========================================
+// Animations de toute la page
+// (tout est désactivé si le visiteur a demandé moins d'animations)
+// ========================================
+function initPageMotion() {
+    if (REDUCED_MOTION) {
+        document.body.classList.add('motion-off');
+        return;
+    }
+    document.body.classList.add('motion-on');
+    initHeroMotion();
+    initCountUps();
+    initCardTilt();
+    initNavbarMotion();
+    initScrollSpy();
+}
+
+/** Entrée du hero en cascade + parallaxe au défilement et à la souris. */
+function initHeroMotion() {
+    const hero = document.getElementById('hero');
+    if (!hero) return;
+    const parts = hero.querySelectorAll('.hero-content > *');
+    parts.forEach((el, i) => { el.classList.add('hero-enter'); el.style.animationDelay = `${150 + i * 120}ms`; });
+
+    const content = hero.querySelector('.hero-content');
+    const c1 = hero.querySelector('.hero-circle-1');
+    const c2 = hero.querySelector('.hero-circle-2');
+    let mx = 0, my = 0, ticking = false;
+    const update = () => {
+        ticking = false;
+        const y = Math.min(window.scrollY, hero.offsetHeight);
+        const p = y / (hero.offsetHeight || 1);
+        if (content) { content.style.transform = `translateY(${y * 0.25}px)`; content.style.opacity = String(1 - p * 1.1); }
+        if (c1) c1.style.transform = `translate(${mx * 30}px, ${y * 0.15 + my * 30}px)`;
+        if (c2) c2.style.transform = `translate(${mx * -20}px, ${y * -0.1 + my * -20}px)`;
+    };
+    const request = () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } };
+    window.addEventListener('scroll', request, { passive: true });
+    if (window.matchMedia('(pointer: fine)').matches) {
+        hero.addEventListener('pointermove', (e) => {
+            const r = hero.getBoundingClientRect();
+            mx = (e.clientX - r.left) / r.width - 0.5;
+            my = (e.clientY - r.top) / r.height - 0.5;
+            request();
+        });
+    }
+}
+
+/** Les chiffres clés comptent jusqu'à leur valeur quand ils apparaissent. */
+function initCountUps() {
+    const nums = document.querySelectorAll('.stat-number');
+    const io = new IntersectionObserver((entries) => {
+        entries.filter(e => e.isIntersecting).forEach(({ target }) => {
+            io.unobserve(target);
+            const end = parseInt(target.textContent, 10) || 0;
+            if (!end) return;
+            const t0 = performance.now(), dur = 1100;
+            const step = (t) => {
+                const k = Math.min(1, (t - t0) / dur);
+                target.textContent = String(Math.round(end * (1 - Math.pow(1 - k, 3))));
+                if (k < 1) requestAnimationFrame(step);
+            };
+            target.textContent = '0';
+            requestAnimationFrame(step);
+        });
+    }, { threshold: 0.6 });
+    nums.forEach(n => io.observe(n));
+}
+
+/** Légère inclinaison 3D des cartes de projet au survol (souris uniquement). */
+function initCardTilt() {
+    if (!window.matchMedia('(pointer: fine)').matches) return;
+    document.addEventListener('pointermove', (e) => {
+        const card = e.target.closest?.('.realisation-card, .project-card');
+        document.querySelectorAll('.is-tilting').forEach(c => { if (c !== card) { c.classList.remove('is-tilting'); c.style.removeProperty('--tilt-x'); c.style.removeProperty('--tilt-y'); } });
+        if (!card) return;
+        const r = card.getBoundingClientRect();
+        card.classList.add('is-tilting');
+        card.style.setProperty('--tilt-x', `${(((e.clientY - r.top) / r.height) - 0.5) * -6}deg`);
+        card.style.setProperty('--tilt-y', `${(((e.clientX - r.left) / r.width) - 0.5) * 8}deg`);
+    }, { passive: true });
+}
+
+/** La barre de navigation se cache quand on descend et revient quand on remonte. */
+function initNavbarMotion() {
+    const nav = document.getElementById('navbar');
+    if (!nav) return;
+    let last = window.scrollY;
+    window.addEventListener('scroll', () => {
+        const y = window.scrollY;
+        const menuOpen = !document.getElementById('mobile-menu')?.classList.contains('hidden');
+        nav.classList.toggle('nav-hidden', y > last && y > window.innerHeight * 0.6 && !menuOpen);
+        last = y;
+    }, { passive: true });
+}
+
+/** Le lien de la section affichée est souligné dans la navigation. */
+function initScrollSpy() {
+    const links = [...document.querySelectorAll('.nav-links .nav-link')];
+    const sections = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+    const io = new IntersectionObserver((entries) => {
+        entries.filter(e => e.isIntersecting).forEach(({ target }) => {
+            links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + target.id));
+        });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    sections.forEach(s => io.observe(s));
 }
 
 // Re-appelé après chaque render pour animer les nouveaux éléments

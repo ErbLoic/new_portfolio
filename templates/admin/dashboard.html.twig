@@ -12,7 +12,7 @@
 {% set colors = ['blue', 'orange', 'teal', 'red', 'indigo', 'purple', 'green', 'blue'] %}
 <div class="stats-grid">
   {% for slug, s in admin_sections() %}
-    <a class="stat-card" data-color="{{ colors[loop.index0] }}" href="{{ path('admin_list', {section: slug}) }}">
+    <a class="stat-card" data-color="{{ colors[loop.index0 % colors|length] }}" href="{{ path('admin_list', {section: slug}) }}">
       <div class="stat-card__ico"><i class="bi {{ s.icon }}"></i></div>
       <div><div class="stat-card__val">{{ counts[slug] }}</div><div class="stat-card__lbl">{{ s.label }}</div></div>
     </a>

@@ -21,6 +21,8 @@ class Formation
     #[ORM\Column(type: 'text', nullable: true)] public ?string $description = null;
     /** Longue : affichée sur les pages des projets réalisés dans cette école. */
     #[ORM\Column(name: 'long_description', type: 'text', nullable: true)] public ?string $longDescription = null;
+    /** « Pourquoi ce choix ? » : affiché dans la frise du parcours. */
+    #[ORM\Column(type: 'text', nullable: true)] public ?string $reason = null;
     #[ORM\Column(name: 'logo_url', nullable: true)] public ?string $logoUrl = null;
     #[ORM\Column(name: 'diploma_url', nullable: true)] public ?string $diplomaUrl = null;
     #[ORM\Column(name: '`order`')] public int $order = 0;

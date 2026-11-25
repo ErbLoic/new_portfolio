@@ -18,7 +18,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /** CRUD générique de toutes les sections déclarées dans AdminSections. */
 #[IsGranted('ROLE_ADMIN')]
-#[Route('/admin/{section}', requirements: ['section' => 'entreprises|experiences|formations|projets|realisations|projets-perso|messages'])]
+#[Route('/admin/{section}', requirements: ['section' => 'entreprises|experiences|missions|formations|projets|realisations|projets-perso|competences|certifications|messages'])]
 final class CrudController extends AbstractController
 {
     public function __construct(

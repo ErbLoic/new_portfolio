@@ -2,7 +2,7 @@
 #  Portfolio Symfony — image de production (Render, ou tout hébergeur Docker)
 #
 #  Aucun secret dans l'image : toutes les valeurs sensibles (DATABASE_URL,
-#  MAILER_DSN, APP_SECRET, clés R2…) sont fournies en variables d'environnement
+#  APP_SECRET, clés R2…) sont fournies en variables d'environnement
 #  au démarrage par l'hébergeur.
 # ─────────────────────────────────────────────────────────────────────────────
 

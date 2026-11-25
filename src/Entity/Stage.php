@@ -14,6 +14,9 @@ class Stage
     #[ORM\Id, ORM\GeneratedValue, ORM\Column] public ?int $id = null;
     #[ORM\ManyToOne, ORM\JoinColumn(name: 'company_id', nullable: false, onDelete: 'CASCADE')]
     public ?Company $company = null;
+    /** Formation dans le cadre de laquelle le stage / l'alternance a été fait(e). */
+    #[ORM\ManyToOne, ORM\JoinColumn(name: 'formation_id', nullable: true, onDelete: 'SET NULL')]
+    public ?Formation $formation = null;
     #[ORM\Column(name: 'start_date', type: 'date')] public ?\DateTimeInterface $startDate = null;
     #[ORM\Column(name: 'end_date', type: 'date', nullable: true)] public ?\DateTimeInterface $endDate = null;
 
@@ -25,6 +28,8 @@ class Stage
     #[ORM\Column] public string $duration = '';
     #[ORM\Column] public string $role = '';
     #[ORM\Column(type: 'text')] public string $description = '';
+    /** « Pourquoi ce choix ? » : affiché dans la frise du parcours. */
+    #[ORM\Column(type: 'text', nullable: true)] public ?string $reason = null;
 
     /** @var Collection<int, Competence> */
     #[ORM\ManyToMany(targetEntity: Competence::class)]
@@ -43,6 +48,11 @@ class Stage
         if ($this->isCurrent) {
             $this->endDate = null;
         }
+    }
+
+    public function __toString(): string
+    {
+        return $this->role.($this->company ? ' — '.$this->company->name : '');
     }
 
     public function __construct()

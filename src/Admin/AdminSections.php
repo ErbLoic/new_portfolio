@@ -25,8 +25,15 @@ final class AdminSections
         'experiences' => [
             'class' => Entity\Stage::class, 'form' => Form\StageType::class,
             'label' => 'Expériences', 'new' => 'Ajouter une expérience', 'icon' => 'bi-briefcase',
-            'columns' => ['role' => 'Poste', 'type' => 'Type', 'company' => 'Entreprise', 'startDate' => 'Début', 'isCurrent' => 'En cours'],
+            'columns' => ['role' => 'Poste', 'type' => 'Type', 'company' => 'Entreprise', 'formation' => 'Formation', 'startDate' => 'Début', 'isCurrent' => 'En cours'],
             'order' => ['startDate' => 'DESC'],
+        ],
+        'missions' => [
+            'class' => Entity\Mission::class, 'form' => Form\MissionType::class,
+            'label' => 'Missions', 'new' => 'Ajouter une mission', 'icon' => 'bi-list-check',
+            'columns' => ['title' => 'Mission', 'stage' => 'Expérience', 'order' => 'Ordre', 'isPublished' => 'Visible'],
+            'order' => ['order' => 'ASC', 'id' => 'DESC'],
+            'toggle' => 'isPublished',
         ],
         'formations' => [
             'class' => Entity\Formation::class, 'form' => Form\FormationType::class,
@@ -58,6 +65,19 @@ final class AdminSections
             'columns' => ['title' => 'Titre', 'type' => 'Type', 'dateLabel' => 'Date', 'isFeatured' => 'Mis en avant', 'images' => 'Images'],
             'order' => ['order' => 'ASC', 'projectDate' => 'DESC'],
             'gallery' => true, 'public' => 'personal_project_show',
+        ],
+        'competences' => [
+            'class' => Entity\Competence::class, 'form' => Form\CompetenceType::class,
+            'label' => 'Compétences', 'new' => 'Ajouter une compétence', 'icon' => 'bi-stars',
+            'columns' => ['label' => 'Compétence', 'bloc' => 'Catégorie', 'level' => 'Niveau'],
+            'order' => ['bloc' => 'ASC', 'level' => 'DESC', 'label' => 'ASC'],
+        ],
+        'certifications' => [
+            'class' => Entity\Certification::class, 'form' => Form\CertificationType::class,
+            'label' => 'Certifications', 'new' => 'Ajouter une certification', 'icon' => 'bi-patch-check',
+            'columns' => ['name' => 'Certification', 'issuer' => 'Organisme', 'issuedAt' => 'Obtenue le', 'order' => 'Ordre'],
+            'order' => ['order' => 'ASC', 'issuedAt' => 'DESC'],
+            'files' => ['badgeUrl' => ['folder' => 'certifications', 'label' => 'Badge (image)']],
         ],
         'messages' => [
             'class' => Entity\ImportantMessage::class, 'form' => Form\MessageType::class,

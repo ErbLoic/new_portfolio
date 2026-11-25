@@ -23,9 +23,11 @@ final class CompetenceType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            ->add('code', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Code', 'attr' => ['placeholder' => 'ex. B1.1']])
-            ->add('bloc', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Bloc', 'attr' => ['placeholder' => 'ex. B1']])
-            ->add('label', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Libellé'])
+            ->add('label', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Compétence', 'attr' => ['placeholder' => 'ex. Symfony']])
+            ->add('code', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Identifiant court (unique)', 'attr' => ['placeholder' => 'ex. symfony']])
+            ->add('bloc', TextType::class, ['empty_data' => '', 'constraints' => [new NotBlank(message: 'Ce champ est obligatoire.')], 'label' => 'Catégorie', 'attr' => ['placeholder' => 'Front, Back, DevOps, Outils…']])
+            ->add('level', ChoiceType::class, ['label' => 'Niveau', 'choices' => ['1 — Notions' => 1, '2 — Débutant' => 2, '3 — Intermédiaire' => 3, '4 — Avancé' => 4, '5 — Expert' => 5]])
+            ->add('icon', TextType::class, ['label' => 'Icône (optionnel)', 'required' => false, 'attr' => ['placeholder' => 'bi-filetype-php'], 'help' => "Nom d'une icône Bootstrap Icons (icons.getbootstrap.com)."])
             ->add('description', TextareaType::class, ['label' => 'Description', 'required' => false, 'attr' => ['rows' => 3]])
         ;
     }

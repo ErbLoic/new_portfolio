@@ -25,8 +25,20 @@ class Portfolio
     #[ORM\Column(name: 'cv_url', nullable: true)] public ?string $cvUrl = null;
     /** Titre affiché sous le nom (ex. « Chargé de missions SI en alternance »). */
     #[ORM\Column(name: 'job_title', nullable: true)] public ?string $jobTitle = null;
-    /** Afficher le formulaire de contact sur le site. */
-    #[ORM\Column(name: 'show_contact_form', options: ['default' => true])] public bool $showContactForm = true;
     /** Afficher le bouton et la section « Télécharger mon CV ». */
     #[ORM\Column(name: 'show_cv', options: ['default' => true])] public bool $showCv = true;
+    /** Affichage du parcours : « split » (deux frises) ou « merged » (une seule frise). */
+    #[ORM\Column(name: 'timeline_mode', length: 10, options: ['default' => 'split'])] public string $timelineMode = 'split';
+    /** Frise : point de départ (affiché tout en bas). */
+    #[ORM\Column(name: 'timeline_start', type: 'text', nullable: true)] public ?string $timelineStart = null;
+    /** Frise : « Et ensuite ? » (objectif, affiché tout en haut). */
+    #[ORM\Column(name: 'timeline_next', type: 'text', nullable: true)] public ?string $timelineNext = null;
+    /** Terminal caché : texte de « cat motivation.txt ». */
+    #[ORM\Column(name: 'terminal_motivation', nullable: true)] public ?string $terminalMotivation = null;
+    /** Terminal caché : phrase par défaut de « cowsay ». */
+    #[ORM\Column(name: 'terminal_cowsay', nullable: true)] public ?string $terminalCowsay = null;
+    /** Terminal caché : citations de « fortune », une par ligne. */
+    #[ORM\Column(name: 'terminal_fortunes', type: 'text', nullable: true)] public ?string $terminalFortunes = null;
+    /** Terminal caché : commandes perso, une par ligne au format « commande | réponse ». */
+    #[ORM\Column(name: 'terminal_commands', type: 'text', nullable: true)] public ?string $terminalCommands = null;
 }

@@ -17,10 +17,6 @@ services:
         value: REMOTE_ADDR
       - key: DATABASE_URL
         sync: false
-      - key: MAILER_DSN
-        sync: false
-      - key: MAILER_FROM
-        sync: false
       - key: CLOUDFLARE_R2_ACCESS_KEY_ID
         sync: false
       - key: CLOUDFLARE_R2_SECRET_ACCESS_KEY

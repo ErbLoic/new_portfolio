@@ -38,7 +38,7 @@ final class AppFixtures extends Fixture
         $p = new Portfolio();
         $p->firstName = 'Camille';
         $p->lastName = 'Exemple';
-        $p->bio = "Étudiant·e en BTS SIO option SLAM, passionné·e par le développement web.";
+        $p->bio = "Étudiant·e en alternance, passionné·e par le développement web et les systèmes d'information.";
         $p->email = 'contact@example.test';
         $p->location = 'Paris, France';
         $p->githubUrl = 'https://github.com/example';

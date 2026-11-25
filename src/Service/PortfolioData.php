@@ -2,10 +2,12 @@
 
 namespace App\Service;
 
+use App\Entity\Certification;
 use App\Entity\Company;
 use App\Entity\Competence;
 use App\Entity\Formation;
 use App\Entity\ImportantMessage;
+use App\Entity\Mission;
 use App\Entity\PersonalProject;
 use App\Entity\Portfolio;
 use App\Entity\Project;
@@ -50,7 +52,14 @@ final class PortfolioData
             ),
             'realisations' => $realisationsData,
             'companies' => array_map(fn (Company $c) => $this->company($c), $this->em->getRepository(Company::class)->findAll()),
-            'competences' => array_map(fn (Competence $c) => $this->competence($c), $this->em->getRepository(Competence::class)->findAll()),
+            'competences' => array_map(
+                fn (Competence $c) => $this->competence($c),
+                $this->em->getRepository(Competence::class)->findBy([], ['bloc' => 'ASC', 'level' => 'DESC', 'label' => 'ASC']),
+            ),
+            'certifications' => array_map(
+                fn (Certification $c) => $this->certification($c),
+                $this->em->getRepository(Certification::class)->findBy([], ['order' => 'ASC', 'issuedAt' => 'DESC']),
+            ),
             'realisationsByCompany' => (object) $byCompany,
             'formations' => array_map(
                 fn (Formation $f) => $this->formation($f),
@@ -188,9 +197,27 @@ final class PortfolioData
             'contact_message_html' => $this->md->block($p->contactMessage),
             // CV masqué depuis l'admin : l'URL n'est pas du tout envoyée au site
             'cv_url' => $p->showCv ? $p->cvUrl : null,
-            'show_contact_form' => $p->showContactForm,
             'job_title' => $p->jobTitle ?: 'Chargé de missions SI en alternance',
+            'timeline_mode' => 'merged' === $p->timelineMode ? 'merged' : 'split',
+            'timeline_start_html' => $this->md->block($p->timelineStart),
+            'timeline_next_html' => $this->md->block($p->timelineNext),
+            'terminal' => [
+                'motivation' => $p->terminalMotivation,
+                'cowsay' => $p->terminalCowsay,
+                'fortunes' => self::lines($p->terminalFortunes),
+                'commands' => array_values(array_filter(array_map(static function (string $l): ?array {
+                    [$cmd, $out] = array_map('trim', explode('|', $l, 2)) + [1 => ''];
+                    $cmd = strtolower($cmd);
+                    return preg_match('/^[a-z0-9_.-]{1,30}$/', $cmd) && $out !== '' ? ['cmd' => $cmd, 'out' => $out] : null;
+                }, self::lines($p->terminalCommands)))),
+            ],
         ] + $this->timestamps($p);
+    }
+
+    /** @return list<string> lignes non vides */
+    private static function lines(?string $text): array
+    {
+        return array_values(array_filter(array_map('trim', preg_split('/\R/', (string) $text)), static fn (string $l) => $l !== ''));
     }
 
     private function company(Company $c): array
@@ -214,7 +241,40 @@ final class PortfolioData
             'label' => $c->label,
             'bloc' => $c->bloc,
             'description' => $c->description,
+            'level' => $c->level,
+            'icon' => $c->icon,
         ] + $this->timestamps($c);
+    }
+
+    private function certification(Certification $c): array
+    {
+        return [
+            'id' => $c->id,
+            'name' => $c->name,
+            'issuer' => $c->issuer,
+            'issued_at' => $this->date($c->issuedAt),
+            'expires_at' => $this->date($c->expiresAt),
+            'credential_url' => $c->credentialUrl,
+            'badge_url' => $c->badgeUrl,
+        ];
+    }
+
+    /** Missions publiées d'une expérience, dans l'ordre choisi. */
+    private function missions(Stage $s): array
+    {
+        if (null === $s->id) {
+            return [];
+        }
+        $missions = $this->em->getRepository(Mission::class)->findBy(['stage' => $s, 'isPublished' => true], ['order' => 'ASC', 'id' => 'ASC']);
+
+        return array_map(fn (Mission $m) => [
+            'id' => $m->id,
+            'title' => $m->title,
+            'context_html' => $this->md->block($m->context),
+            'actions_html' => $this->md->block($m->actions),
+            'results_html' => $this->md->block($m->results),
+            'tags' => $m->tagList(),
+        ], $missions);
     }
 
     private function stage(Stage $s): array
@@ -222,6 +282,8 @@ final class PortfolioData
         return [
             'id' => $s->id,
             'company_id' => $s->company?->id,
+            'formation_id' => $s->formation?->id,
+            'formation' => $s->formation ? ['id' => $s->formation->id, 'title' => $s->formation->title, 'school' => $s->formation->school, 'degree_type' => $s->formation->degreeType] : null,
             'start_date' => $this->date($s->startDate),
             'end_date' => $this->date($s->endDate),
             'duration' => $s->duration,
@@ -230,7 +292,9 @@ final class PortfolioData
             'role' => $s->role,
             'description' => $s->description,
             'description_html' => $this->md->block($s->description),
+            'reason_html' => $this->md->block($s->reason),
             'company' => $s->company ? $this->company($s->company) : null,
+            'missions' => $this->missions($s),
         ] + $this->timestamps($s);
     }
 
@@ -247,6 +311,7 @@ final class PortfolioData
             'is_current' => $f->isCurrent,
             'description' => $f->description,
             'description_html' => $this->md->block($f->description),
+            'reason_html' => $this->md->block($f->reason),
             'logo_url' => $f->logoUrl,
             'diploma_url' => $f->diplomaUrl,
             'order' => $f->order,

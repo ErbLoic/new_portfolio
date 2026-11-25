@@ -42,6 +42,11 @@
             ></a>
           </li>
           <li>
+            <a href="#competences" class="nav-link"
+              >Compétences<span class="nav-underline"></span
+            ></a>
+          </li>
+          <li>
             <a href="#realisations" class="nav-link"
               >Projets<span class="nav-underline"></span
             ></a>
@@ -57,6 +62,7 @@
       <div id="mobile-menu" class="hidden">
         <a href="#hero" class="nav-mobile-link">Accueil</a>
         <a href="#profil" class="nav-mobile-link">Profil</a>
+        <a href="#competences" class="nav-mobile-link">Compétences</a>
         <a href="#realisations" class="nav-mobile-link">Projets</a>
         <a href="#contact" class="nav-mobile-link">Me contacter</a>
       </div>
@@ -228,10 +234,31 @@
           </div>
         </div>
 
-        <!-- Mon Parcours -->
-        <div class="formations-section">
+        <!-- Mon Parcours : formations + expériences sur une seule frise -->
+        <div class="parcours-section">
           <h3>Mon <span class="italic accent">parcours</span></h3>
-          <div id="formations-timeline" class="timeline"></div>
+          <div id="parcours-timeline" class="timeline"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Compétences & certifications -->
+    <section id="competences" class="hidden">
+      <div class="section-container">
+        <div class="section-header center">
+          <div class="section-label center">
+            <div class="label-line"></div>
+            <span>Compétences</span>
+            <div class="label-line"></div>
+          </div>
+          <h2>Ce que je <span class="italic accent">maîtrise</span></h2>
+        </div>
+        <div id="competences-grid" class="competences-grid"></div>
+        <div class="certifications-block hidden">
+          <h3>Mes <span class="italic accent">certifications</span></h3>
+          <div id="certifications-list" class="certifications-list"></div>
         </div>
       </div>
     </section>
@@ -250,11 +277,12 @@
           <h2>Mes <span class="italic accent">expériences</span></h2>
         </div>
 
-        <!-- Expériences professionnelles -->
-        <div class="stages-section">
+        <!-- Expériences professionnelles (mode « séparé ») -->
+        <div class="stages-section hidden">
           <h3>Expériences <span class="italic accent">professionnelles</span></h3>
           <div id="stages-timeline" class="timeline"></div>
         </div>
+
 
         <!-- Réalisations et Projets Section Fusionnée -->
         <div class="section-header-flex">
@@ -426,34 +454,7 @@
             >
           </div>
         </div>
-        {% set show_form = data.portfolio.show_contact_form ?? true %}
-        {% if show_form %}
-        <form id="contact-form" class="contact-form" novalidate>
-          <div class="cf-row">
-            <div class="cf-field">
-              <label for="cf-name">Nom</label>
-              <input id="cf-name" name="name" type="text" autocomplete="name" maxlength="255" required placeholder="Votre nom" />
-            </div>
-            <div class="cf-field">
-              <label for="cf-email">Email</label>
-              <input id="cf-email" name="email" type="email" autocomplete="email" maxlength="255" required placeholder="vous@exemple.fr" />
-            </div>
-          </div>
-          <div class="cf-field">
-            <label for="cf-message">Message</label>
-            <textarea id="cf-message" name="message" rows="5" maxlength="5000" required placeholder="Votre message…"></textarea>
-          </div>
-          <p class="cf-privacy">
-            Vos nom, email et message servent uniquement à vous répondre. Ils me sont transmis par email,
-            ne sont pas enregistrés sur ce site et ne sont jamais revendus ni partagés.
-            <a href="{{ path('legal') }}#donnees">En savoir plus et exercer vos droits</a>.
-          </p>
-          <button id="cf-submit" type="submit" class="btn-white">Envoyer</button>
-          <p id="cf-feedback" class="cf-feedback" role="status" aria-live="polite"></p>
-        </form>
-        {% endif %}
-        {# Sans formulaire, un bouton « Envoyer un email » le remplace #}
-        <a id="email-cta" href="mailto:{{ data.portfolio.email ?? '' }}" class="btn-white"{{ show_form or not (data.portfolio.email ?? null) ? ' style="display: none"' }}
+        <a id="email-cta" href="mailto:{{ data.portfolio.email ?? '' }}" class="btn-white"{{ not (data.portfolio.email ?? null) ? ' style="display: none"' }}
           >Envoyer un email</a
         >
       </div>

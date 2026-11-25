@@ -58,7 +58,21 @@
 
   <div class="card">
     <div class="card__head"><h2><i class="bi bi-chat-dots"></i> Message de contact</h2></div>
-    <div class="card__body">{{ form_row(form.contactMessage) }}{{ form_row(form.showContactForm) }}</div>
+    <div class="card__body">{{ form_row(form.contactMessage) }}</div>
+  </div>
+
+  <div class="card">
+    <div class="card__head"><h2><i class="bi bi-signpost-split"></i> Parcours</h2></div>
+    <div class="card__body">{{ form_row(form.timelineMode) }}{{ form_row(form.timelineNext) }}{{ form_row(form.timelineStart) }}</div>
+  </div>
+
+  <div class="card">
+    <div class="card__head"><h2><i class="bi bi-terminal"></i> Terminal caché (easter egg « sudo »)</h2></div>
+    <div class="card__body">
+      <div class="form-grid-2">{{ form_row(form.terminalMotivation) }}{{ form_row(form.terminalCowsay) }}</div>
+      {{ form_row(form.terminalFortunes) }}
+      {{ form_row(form.terminalCommands) }}
+    </div>
   </div>
 </div>
 <div class="form-actions sticky-actions">
